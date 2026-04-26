@@ -2212,7 +2212,7 @@
       position: absolute;
       inset: 0;
       pointer-events: none;
-      z-index: 15;
+      z-index: 100;
       overflow: hidden;
     }
     .physFace {
@@ -2232,6 +2232,14 @@
       opacity: var(--coin-elev-dupe-alpha);
       filter: brightness(0.5) saturate(0.85);
       transform: scale(var(--coin-elev-dupe-scale));
+    }
+    /* window.physDebug(true) sets this class on body */
+    body.phys-debug .physFace-card,
+    body.phys-debug .physFace-coin {
+      opacity: 1 !important;
+      filter: brightness(1) saturate(1) !important;
+      transform: none !important;
+      outline: 3px solid red !important;
     }
     /* ── Global elevation variable sections (Vars panel, nothing selected) ── */
     .globalVarSection { border-bottom: 1px solid rgba(200,170,120,0.12); grid-column: 1 / -1; }
@@ -7301,6 +7309,22 @@
       }
 
       window.addEventListener('resize', () => scheduleAnimationSync(300), { passive: true });
+
+      let _posLogged = false;
+      function logPositions() {
+        const appRect = app.getBoundingClientRect();
+        console.log(`[physFace] #app rect: left=${appRect.left.toFixed(0)} top=${appRect.top.toFixed(0)} w=${appRect.width.toFixed(0)} h=${appRect.height.toFixed(0)}`);
+        for (const [key, faceEl] of faceMap) {
+          console.log(`[physFace] ${key}: left=${faceEl.style.left} top=${faceEl.style.top} w=${faceEl.style.width} h=${faceEl.style.height} src=${faceEl.src.split('/').pop()}`);
+        }
+      }
+
+      window.physDebug = function(on = true) {
+        document.body.classList.toggle('phys-debug', on);
+        console.log(`[physFace] debug mode ${on ? 'ON (red outlines, full brightness)' : 'OFF'}`);
+        logPositions();
+      };
+
       return { sync, scheduleAnimationSync };
     })();
 
