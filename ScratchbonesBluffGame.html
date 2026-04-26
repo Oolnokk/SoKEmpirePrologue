@@ -676,7 +676,6 @@
       flex: 0 1 auto;
       max-width: 100%;
       position: relative;
-      transform: translateZ(var(--card-elev-lift-z));
       will-change: transform;
     }
     .tableViewCard::before {
@@ -700,7 +699,7 @@
       height: 100%;
       object-fit: contain;
       display: block;
-      transform: scale(var(--layout-table-card-content-scale));
+      transform: perspective(var(--card-elev-perspective)) translateZ(var(--card-elev-lift-z)) scale(var(--layout-table-card-content-scale));
       transform-origin: center center;
       filter:
         drop-shadow(var(--card-elev-shadow-x) var(--card-elev-shadow-y) var(--card-elev-shadow-blur) rgba(0,0,0,var(--card-elev-shadow-alpha)))
@@ -2218,23 +2217,44 @@
     body.proj-mapping .card {
       pointer-events: none !important;
     }
-    /* Physical face layer – flat darkened duplicates of cards and coins at z=0 */
-    #physFaceLayer {
-      position: absolute;
-      inset: 0;
-      pointer-events: none;
-      z-index: 1;
-      overflow: hidden;
-    }
+    /* Physical face – dark duplicate injected inside each card/coin container.
+       Each context class carries the exact same sizing + non-elevation transforms
+       as the source img, so the physFace sits at the element's natural (Z=0) position. */
     .physFace {
       position: absolute;
+      display: block;
       object-fit: contain;
       pointer-events: none;
       -webkit-user-drag: none;
       user-select: none;
     }
-    /* Injected inside .card — fills container at card's natural layout position (ground level) */
-    .physFace-injected { inset: 0; }
+    /* hand card (.card img.cardArt): elevation is self-contained on img, physFace fills container */
+    .physFace-inj-card    { top: 0; left: 0; width: 100%; height: 100%; }
+    /* table view card (.tableViewCard img): elevation is now on img; physFace carries only the
+       content scale so it sits at Z=0 while the img elevates via perspective(P)+translateZ */
+    .physFace-inj-tablecard {
+      top: 0; left: 0; width: 100%; height: 100%;
+      transform: scale(var(--layout-table-card-content-scale));
+      transform-origin: center center;
+    }
+    /* stake-tier coin button (.stakeTierBtn img): parent has perspective; physFace at Z=0,
+       same 62% size as the coin img, centered in button via translate */
+    .physFace-inj-coinstake {
+      top: 50%; left: 50%;
+      width: calc(var(--layout-betting-coin-button-size) * 0.62);
+      height: calc(var(--layout-betting-coin-button-size) * 0.62);
+      transform: translate(-50%, -50%);
+      transform-origin: center center;
+    }
+    /* stake-anchor coin (.stakeAnchor img): parent has perspective; physFace at Z=0,
+       same size as coin img, centered in anchor */
+    .physFace-inj-coinanchor {
+      top: 50%; left: 50%;
+      width: var(--layout-betting-contribution-coin-size);
+      height: var(--layout-betting-contribution-coin-size);
+      transform: translate(-50%, -50%);
+      transform-origin: center center;
+    }
     .physFace-card {
       opacity: var(--card-elev-dupe-alpha);
       filter: brightness(0.5) saturate(0.85);
@@ -7185,151 +7205,82 @@
     window.addEventListener('pointerdown', () => SCRATCHBONES_AUDIO.startPlaylist(), { once: true, passive: true });
     window.addEventListener('keydown', () => SCRATCHBONES_AUDIO.startPlaylist(), { once: true, passive: true });
 
-    // ── Physical face layer ──────────────────────────────────────────────────
-    // Mirrors the z-duplicate layer from the elevation demo: a flat-layer copy
-    // of each card/coin PNG rendered with brightness 0.5 + multiply blend at the
-    // element's 2D footprint, grounding the elevated image on the surface.
-    //
-    // Uses a rAF burst loop started by scheduleAnimationSync() so that:
-    //   • CSS animations (claimRevealCardIn slide-in, cinematic transitions) are
-    //     tracked per-frame for the duration of the longest animation.
-    //   • img.style.opacity is mirrored so physical faces hide while cardAnimator
-    //     has set the real image invisible during a clone-flight lerp.
+    // ── Physical face system ─────────────────────────────────────────────────
+    // Injects a darkened duplicate <img> BEFORE each elevated card/coin img so
+    // it sits at Z=0 (the element's un-elevated natural position) inside the same
+    // stacking context.  Each context class carries the exact same sizing and
+    // non-elevation transforms as the source img, so the physFace appears at
+    // ground level without any coordinate maths.
     const physicalFaceSystem = (() => {
-      // Hand cards (.card img.cardArt): inject physFace inside .card so it sits above
-      // the hand-panel background but behind the elevated card PNG (by DOM order).
-      // No coordinate math needed — inset:0 fills the container at its natural layout
-      // position, which IS the ground-level (pre-elevation) card position.
-      const INJECT_SELECTORS  = '#app .card img.cardArt';
-      // Table cards and coins: kept on #physFaceLayer.  Screen→local coords are
-      // corrected for #app's CSS scale transform (getBoundingClientRect is post-scale
-      // but position:absolute values live in #app's pre-scale local space).
-      const LAYER_CARD_SEL    = '#app .tableViewCard img';
-      const LAYER_COIN_SEL    = '#app .stakeTierBtn img, #app .stakeAnchor img';
+      // Selector → { containerSel, injClass, kind }
+      // containerSel: closest() ancestor to inject physFace into (before the img)
+      // injClass: CSS class that carries the correct sizing + non-elevation transforms
+      const CONTEXTS = [
+        // Hand cards: elevation is self-contained on img; physFace fills container (Z=0).
+        { sel: '#app .card img.cardArt',  containerSel: '.card',         injClass: 'physFace-inj-card',      kind: 'card' },
+        // Table cards: elevation moved to img (perspective+translateZ+scale); physFace
+        // carries only the content scale so it stays at Z=0.
+        { sel: '#app .tableViewCard img', containerSel: '.tableViewCard', injClass: 'physFace-inj-tablecard', kind: 'card' },
+        // Coin buttons: parent has perspective; physFace at Z=0 (same 62% size, centred).
+        { sel: '#app .stakeTierBtn img',  containerSel: '.stakeTierBtn',  injClass: 'physFace-inj-coinstake', kind: 'coin' },
+        // Stake-anchor coins: parent has perspective; physFace at Z=0 (coin size, centred).
+        { sel: '#app .stakeAnchor img',   containerSel: '.stakeAnchor',   injClass: 'physFace-inj-coinanchor',kind: 'coin' },
+      ];
 
-      const layer = document.createElement('div');
-      layer.id = 'physFaceLayer';
-      layer.setAttribute('aria-hidden', 'true');
-      app.insertBefore(layer, app.firstChild);
-
-      const faceMap = new Map();
+      const faceMap = new Map(); // key → faceEl
       let nextFaceId = 1;
       let rafHandle = 0;
       let loopUntil = 0;
 
-      function getOrCreate(img, kind, extraClass) {
+      function processImg(img, containerSel, injClass, kind) {
+        const container = img.closest(containerSel);
+        if (!container) return null;
+
         let key = img.dataset.physFaceId;
         if (!key) { key = `pf${nextFaceId++}`; img.dataset.physFaceId = key; }
-        return { key, existing: faceMap.get(key) };
-      }
 
-      function makeFace(kind, extraClass) {
-        const el = document.createElement('img');
-        el.className = `physFace physFace-${kind}${extraClass ? ' ' + extraClass : ''}`;
-        el.setAttribute('aria-hidden', 'true');
-        return el;
-      }
-
-      // Injection: physFace lives inside the .card container, behind img.cardArt.
-      function processInjected(img, kind) {
-        const container = img.closest('.card');
-        if (!container) return null;
-        const { key, existing } = getOrCreate(img, kind);
-        let faceEl = existing;
+        let faceEl = faceMap.get(key);
+        // Re-create if the face was evicted (render wipe) or ended up in the wrong parent.
         if (!faceEl || faceEl.parentElement !== container) {
           if (faceEl) faceEl.remove();
-          faceEl = makeFace(kind, 'physFace-injected');
+          faceEl = document.createElement('img');
+          faceEl.className = `physFace physFace-${kind} ${injClass}`;
+          faceEl.setAttribute('aria-hidden', 'true');
           faceEl.src = img.src;
           container.insertBefore(faceEl, img); // before img → painted behind it
           faceMap.set(key, faceEl);
         }
+
         if (faceEl.src !== img.src) faceEl.src = img.src;
+        // Mirror cardAnimator's opacity-0 so the face hides during clone flight.
         faceEl.style.opacity = img.style.opacity === '0' ? '0' : '';
         return key;
       }
 
-      // Layer: physFace on #physFaceLayer with screen→local coordinate correction.
-      function processLayered(img, kind, appRect, appScale, cfg) {
-        const projRect = img.getBoundingClientRect();
-        if (!projRect.width || !projRect.height) return null;
-        const { key, existing } = getOrCreate(img, kind);
-        let faceEl = existing;
-        if (!faceEl || faceEl.parentElement !== layer) {
-          if (faceEl) faceEl.remove();
-          faceEl = makeFace(kind);
-          faceEl.src = img.src;
-          layer.appendChild(faceEl);
-          faceMap.set(key, faceEl);
-        }
-        if (faceEl.src !== img.src) faceEl.src = img.src;
-
-        // Inverse-project from the visually-elevated rect back to ground-level bounds.
-        const { perspective, lift, amplify } = cfg;
-        const invScale   = (perspective - lift) / perspective;
-        const groundH    = projRect.height * invScale;
-        const groundW    = projRect.width;
-        const projBottom = projRect.top + projRect.height;
-        const groundTop  = projBottom - groundH;
-        const groundCx   = projRect.left + projRect.width * 0.5;
-        const groundCy   = groundTop + groundH * 0.5 + (projRect.top - groundTop) * (amplify - 1);
-
-        // Divide by appScale: getBoundingClientRect returns screen-space (post CSS-scale),
-        // but position:absolute on physFace is in #app's local pre-scale coordinate space.
-        faceEl.style.left   = `${((groundCx - groundW * 0.5 - appRect.left) / appScale).toFixed(1)}px`;
-        faceEl.style.top    = `${((groundCy - groundH * 0.5 - appRect.top ) / appScale).toFixed(1)}px`;
-        faceEl.style.width  = `${(groundW / appScale).toFixed(1)}px`;
-        faceEl.style.height = `${(groundH / appScale).toFixed(1)}px`;
-        faceEl.style.opacity = img.style.opacity === '0' ? '0' : '';
-        return key;
-      }
-
-      let _lastSyncCount = -1;
+      let _lastCount = -1;
       function sync() {
-        // app.innerHTML on each render evicts #physFaceLayer and all .card-injected faces.
-        if (layer.parentNode !== app) {
-          layer.textContent = '';
-          faceMap.clear();
-          _lastSyncCount = -1;
-          app.insertBefore(layer, app.firstChild);
-        }
-        const appRect = app.getBoundingClientRect();
-        if (!appRect.width) return;
-        // #app has transform:scale(S) for viewport fitting; offsetWidth is pre-scale CSS width.
-        const appScale = app.offsetWidth ? appRect.width / app.offsetWidth : 1;
-
-        const cs = getComputedStyle(document.documentElement);
-        const pv = n => parseFloat(cs.getPropertyValue(n)) || 0;
-        const cardCfg = { perspective: pv('--card-elev-perspective') || 920,  lift: pv('--card-elev-lift-z') || 24, amplify: pv('--card-elev-amplify') || 1 };
-        const coinCfg = { perspective: pv('--coin-elev-perspective') || 1900, lift: pv('--coin-elev-lift-z') || 24, amplify: pv('--coin-elev-amplify') || 1 };
-
         const processedKeys = new Set();
-        let injCount = 0, layerCount = 0, coinCount = 0, skipCount = 0;
+        let total = 0, skipCount = 0;
 
-        document.querySelectorAll(INJECT_SELECTORS).forEach(img => {
-          const k = processInjected(img, 'card');
-          if (k) { processedKeys.add(k); injCount++; } else { skipCount++; }
-        });
-        document.querySelectorAll(LAYER_CARD_SEL).forEach(img => {
-          const k = processLayered(img, 'card', appRect, appScale, cardCfg);
-          if (k) { processedKeys.add(k); layerCount++; } else { skipCount++; }
-        });
-        document.querySelectorAll(LAYER_COIN_SEL).forEach(img => {
-          const k = processLayered(img, 'coin', appRect, appScale, coinCfg);
-          if (k) { processedKeys.add(k); coinCount++; } else { skipCount++; }
-        });
+        for (const { sel, containerSel, injClass, kind } of CONTEXTS) {
+          document.querySelectorAll(sel).forEach(img => {
+            const k = processImg(img, containerSel, injClass, kind);
+            if (k) { processedKeys.add(k); total++; } else { skipCount++; }
+          });
+        }
 
         let removedCount = 0;
         for (const [key, faceEl] of faceMap) {
           if (!processedKeys.has(key)) { faceEl.remove(); faceMap.delete(key); removedCount++; }
         }
 
-        const total = injCount + layerCount + coinCount;
-        if (total !== _lastSyncCount || removedCount || skipCount) {
-          console.log(`[physFace] sync — ${injCount} inj + ${layerCount} layerCards + ${coinCount} coins${skipCount ? ` | ${skipCount} skipped` : ''}${removedCount ? ` | ${removedCount} removed` : ''}`);
-          _lastSyncCount = total;
+        if (total !== _lastCount || removedCount) {
+          console.log(`[physFace] sync — ${total} active${skipCount ? ` | ${skipCount} skipped` : ''}${removedCount ? ` | ${removedCount} removed` : ''}`);
+          _lastCount = total;
         }
       }
 
+      // rAF burst so CSS animations (slide-in, cinematic) are tracked per-frame.
       function scheduleAnimationSync(durationMs = 700) {
         loopUntil = Math.max(loopUntil, performance.now() + durationMs);
         if (rafHandle) return;
@@ -7344,12 +7295,9 @@
 
       window.physDebug = function(on = true) {
         document.body.classList.toggle('phys-debug', on);
-        const appRect = app.getBoundingClientRect();
-        const appScale = app.offsetWidth ? appRect.width / app.offsetWidth : 1;
-        console.log(`[physFace] debug ${on ? 'ON' : 'OFF'} | appScale=${appScale.toFixed(4)}`);
+        console.log(`[physFace] debug ${on ? 'ON' : 'OFF'} — ${faceMap.size} faces tracked`);
         for (const [key, faceEl] of faceMap) {
-          const injected = faceEl.classList.contains('physFace-injected');
-          console.log(`[physFace] ${key} (${injected ? 'injected' : 'layer'}): ${injected ? 'inset:0' : `left=${faceEl.style.left} top=${faceEl.style.top} w=${faceEl.style.width} h=${faceEl.style.height}`} src=${(faceEl.src||'').split('/').pop()}`);
+          console.log(`[physFace] ${key} cls=${faceEl.className} src=${(faceEl.src||'').split('/').pop()} parent=${faceEl.parentElement?.className}`);
         }
       };
 
