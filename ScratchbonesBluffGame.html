@@ -191,6 +191,7 @@
       --card-elev-contact-blur: 6px;
       --card-elev-dupe-alpha: 0.56;
       --card-elev-dupe-scale: 0.985;
+      --card-elev-amplify: 3;
       /* Coin 3-D elevation */
       --coin-elev-perspective: 1900px;
       --coin-elev-origin-x: 50%;
@@ -204,6 +205,7 @@
       --coin-elev-contact-blur: 6px;
       --coin-elev-dupe-alpha: 0.56;
       --coin-elev-dupe-scale: 0.985;
+      --coin-elev-amplify: 3;
     }
     * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
     html, body { margin: 0; background: transparent; color: var(--text); font-family: 'Khymeryyanroman4', Inter, system-ui, sans-serif; letter-spacing: 0.10em; height: 100%; }
@@ -6849,6 +6851,7 @@
           { v: '--card-elev-contact-blur', label: 'Contact Blur', min: 0,    max: 20,   step: 1,     unit: 'px' },
           { v: '--card-elev-dupe-alpha',   label: 'Dupe Alpha',   min: 0,    max: 1,    step: 0.01,  unit: '' },
           { v: '--card-elev-dupe-scale',   label: 'Dupe Scale',   min: 0.5,  max: 1.5,  step: 0.005, unit: '' },
+          { v: '--card-elev-amplify',      label: 'Amplify',      min: 0,    max: 20,   step: 0.1,   unit: '' },
         ]},
         { id: 'coin-elev', label: 'Coin Elevation', sliders: [
           { v: '--coin-elev-perspective',  label: 'Perspective',  min: 200,  max: 6000, step: 10,    unit: 'px' },
@@ -6861,6 +6864,7 @@
           { v: '--coin-elev-contact-blur', label: 'Contact Blur', min: 0,    max: 20,   step: 1,     unit: 'px' },
           { v: '--coin-elev-dupe-alpha',   label: 'Dupe Alpha',   min: 0,    max: 1,    step: 0.01,  unit: '' },
           { v: '--coin-elev-dupe-scale',   label: 'Dupe Scale',   min: 0.5,  max: 1.5,  step: 0.005, unit: '' },
+          { v: '--coin-elev-amplify',      label: 'Amplify',      min: 0,    max: 20,   step: 0.1,   unit: '' },
         ]},
       ];
       const elevSectionOpen = {};
@@ -7264,8 +7268,12 @@
 
       let _lastSyncCount = -1;
       function sync() {
-        // app.innerHTML wipes #physFaceLayer on every render — re-insert if evicted
+        // app.innerHTML wipes #physFaceLayer on every render — re-insert if evicted.
+        // faceMap.clear() alone isn't enough: old face <img> elements remain as
+        // children of `layer` and reappear as ghost faces from the previous state.
+        // Wipe layer.children too so the DOM starts clean.
         if (layer.parentNode !== app) {
+          layer.textContent = '';
           faceMap.clear();
           _lastSyncCount = -1;
           app.insertBefore(layer, app.firstChild);
@@ -7280,8 +7288,8 @@
 
         const cs = getComputedStyle(document.documentElement);
         const pv = n => parseFloat(cs.getPropertyValue(n)) || 0;
-        const cardCfg = { perspective: pv('--card-elev-perspective') || 920, lift: pv('--card-elev-lift-z') || 24, amplify: 10 };
-        const coinCfg = { perspective: pv('--coin-elev-perspective') || 1900, lift: pv('--coin-elev-lift-z') || 24, amplify: 10 };
+        const cardCfg = { perspective: pv('--card-elev-perspective') || 920, lift: pv('--card-elev-lift-z') || 24, amplify: pv('--card-elev-amplify') || 3 };
+        const coinCfg = { perspective: pv('--coin-elev-perspective') || 1900, lift: pv('--coin-elev-lift-z') || 24, amplify: pv('--coin-elev-amplify') || 3 };
 
         const processedKeys = new Set();
         let cardCount = 0, coinCount = 0, skipCount = 0;
