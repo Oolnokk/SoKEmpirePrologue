@@ -93,15 +93,36 @@ export class CandleLightOverlay2D {
    * Apply numeric control settings from a demo-exported JSON object.
    * Image data (surface / occluders) is intentionally ignored.
    *
-   * @param {object} json - Parsed JSON from the candlelight demo's "Export Settings" button.
+   * Radius and light position are scaled from the demo's reference viewport to the
+   * current stage size.  The demo does not embed its viewport dimensions, so we
+   * assume 1280×720 by default – override with the optional second argument if you
+   * know the exact screen size the JSON was exported from.
+   *
+   * @param {object} json             - Parsed JSON from the candlelight demo's "Export Settings" button.
+   * @param {object} [refViewport]    - Reference viewport the JSON was created on.
+   * @param {number} [refViewport.width=1280]
+   * @param {number} [refViewport.height=720]
    */
-  loadSettings(json) {
+  loadSettings(json, { width: refW = 1280, height: refH = 720 } = {}) {
     if (!json || typeof json !== 'object') return;
     const c = json.controls || {};
+
     if (c.intensity  != null) this.intensity  = Number(c.intensity);
-    if (c.radius     != null) this.radius     = Number(c.radius);
     if (c.speed      != null) this.speed      = Number(c.speed);
     if (c.turbulence != null) this.turbulence = Number(c.turbulence);
+
+    // Scale radius from reference viewport to current stage size
+    if (c.radius != null) {
+      const stageMin = Math.min(this._w || refW, this._h || refH);
+      const refMin   = Math.min(refW, refH);
+      this.radius = Number(c.radius) * (stageMin / refMin);
+    }
+
+    // Translate absolute light position to 0–1 fractions
+    if (json.light) {
+      if (typeof json.light.x === 'number') this._posNormX = json.light.x / refW;
+      if (typeof json.light.y === 'number') this._posNormY = json.light.y / refH;
+    }
   }
 
   /**
