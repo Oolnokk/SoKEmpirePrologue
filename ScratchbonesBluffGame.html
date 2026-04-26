@@ -7043,10 +7043,40 @@
     const glowCtx   = glowCanvas.getContext('2d',   { alpha: true });
 
     // Off-screen work buffers
-    const workDark = document.createElement('canvas');
-    const workGlow = document.createElement('canvas');
-    const wdCtx    = workDark.getContext('2d', { alpha: true });
-    const wgCtx    = workGlow.getContext('2d', { alpha: true });
+    const workDark   = document.createElement('canvas');
+    const workGlow   = document.createElement('canvas');
+    const workShadow = document.createElement('canvas');
+    const wdCtx  = workDark.getContext('2d',   { alpha: true });
+    const wgCtx  = workGlow.getContext('2d',   { alpha: true });
+    const wsCtx  = workShadow.getContext('2d', { alpha: true });
+
+    // Silhouette cache: pre-render each unique img.src as a black shape once
+    const silhouetteCache = new Map();
+    function getSilhouette(img) {
+      const key = img.src;
+      if (silhouetteCache.has(key)) return silhouetteCache.get(key);
+      const nw = img.naturalWidth  || 1;
+      const nh = img.naturalHeight || 1;
+      const oc = document.createElement('canvas');
+      oc.width = nw; oc.height = nh;
+      const octx = oc.getContext('2d');
+      octx.drawImage(img, 0, 0);
+      octx.globalCompositeOperation = 'source-atop';
+      octx.fillStyle = '#000';
+      octx.fillRect(0, 0, nw, nh);
+      silhouetteCache.set(key, oc);
+      return oc;
+    }
+
+    // Throttled occluder cache (~12 fps gather, 60 fps render)
+    let lastGatherMs = 0, cachedOccluders = [];
+    function maybeGather(app) {
+      const now = performance.now();
+      if (now - lastGatherMs < 80) return cachedOccluders;
+      lastGatherMs = now;
+      cachedOccluders = gatherOccluders(app);
+      return cachedOccluders;
+    }
 
     function resize(app) {
       const rect = app.getBoundingClientRect();
@@ -7062,8 +7092,9 @@
       shadowCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
       darkCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
       glowCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
-      workDark.width = w;  workDark.height = h;
-      workGlow.width = w;  workGlow.height = h;
+      workDark.width   = w; workDark.height   = h;
+      workGlow.width   = w; workGlow.height   = h;
+      workShadow.width = w; workShadow.height = h;
     }
 
     function ensureInApp(app) {
@@ -7101,12 +7132,16 @@
       return occluders;
     }
 
-    // ── Shadow drawing (ported from candlelight demo occluder logic) ──────────
+    // ── Shadow drawing ────────────────────────────────────────────────────────
+    // Steps rendered to workShadow with NO per-step blur; a single blur blit
+    // to shadowCtx replaces the old per-step brightness(0)+blur filter chain.
     function drawOccluderShadows(lx, ly, intensity, occluders) {
-      shadowCtx.clearRect(0, 0, w, h);
-      if (!occluders.length) return;
+      wsCtx.clearRect(0, 0, w, h);
 
       occluders.forEach(occ => {
+        const sil = getSilhouette(occ.img);
+        if (!sil || !sil.width || !sil.height) return;
+
         const dx   = occ.cx - lx;
         const dy   = occ.cy - ly;
         const dist = Math.hypot(dx, dy) || 1;
@@ -7114,30 +7149,34 @@
         const dirY = dy / dist;
 
         const shadowLength = occ.sh * 1.35;
-        const spread   = 1 + occ.sh * 0.0022;
-        const softness = clamp(lerp(1.2, 10, occ.sh / 260), 1.2, 12);
+        const spread    = 1 + occ.sh * 0.0022;
         const baseAlpha = clamp(0.34 + intensity * 0.22, 0.15, 0.72);
+        // Scale silhouette canvas coords → screen coords
+        const sx = occ.iw / sil.width;
+        const sy = occ.ih / sil.height;
 
-        for (let step = 1; step <= 6; step++) {
-          const t      = step / 6;
-          const blurPx = softness * t;
-          const alpha  = baseAlpha * Math.pow(1 - t + 0.02, 1.35);
-
-          shadowCtx.save();
-          shadowCtx.translate(
+        for (let step = 1; step <= 4; step++) {
+          const t = step / 4;
+          wsCtx.save();
+          wsCtx.globalAlpha = baseAlpha * Math.pow(1 - t + 0.02, 1.35);
+          wsCtx.translate(
             occ.cx + dirX * shadowLength * t,
             occ.cy + dirY * shadowLength * t
           );
-          shadowCtx.scale(
-            1 + t * (spread - 1) * 0.85,
-            1 + t * (spread - 1)
+          wsCtx.scale(
+            (1 + t * (spread - 1) * 0.85) * sx,
+            (1 + t * (spread - 1))        * sy
           );
-          shadowCtx.filter      = `brightness(0) blur(${blurPx}px)`;
-          shadowCtx.globalAlpha = alpha;
-          shadowCtx.drawImage(occ.img, -occ.iw * 0.5, -occ.ih * 0.5, occ.iw, occ.ih);
-          shadowCtx.restore();
+          wsCtx.drawImage(sil, -sil.width * 0.5, -sil.height * 0.5);
+          wsCtx.restore();
         }
       });
+
+      // Single blur pass — far cheaper than per-step filter
+      shadowCtx.clearRect(0, 0, w, h);
+      shadowCtx.filter = 'blur(3px)';
+      shadowCtx.drawImage(workShadow, 0, 0);
+      shadowCtx.filter = 'none';
     }
 
     function draw(time) {
@@ -7159,7 +7198,7 @@
       const alpha  = clamp(0.5 * INTENSITY * pulse, 0.08, 1.25);
 
       // ── Shadow layer ────────────────────────────────────────────────────────
-      const occluders = gatherOccluders(appRef);
+      const occluders = maybeGather(appRef);
       drawOccluderShadows(lx, ly, INTENSITY * pulse, occluders);
 
       // ── Darkness layer ─────────────────────────────────────────────────────
