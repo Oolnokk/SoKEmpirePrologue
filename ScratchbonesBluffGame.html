@@ -190,8 +190,8 @@
       --card-elev-contact-alpha: 0.62;
       --card-elev-contact-blur: 6px;
       --card-elev-dupe-alpha: 0.56;
-      --card-elev-dupe-scale: 0.985;
-      --card-elev-amplify: 3;
+      --card-elev-dupe-scale: 1;
+      --card-elev-amplify: 1;
       /* Coin 3-D elevation */
       --coin-elev-perspective: 1900px;
       --coin-elev-origin-x: 50%;
@@ -204,8 +204,8 @@
       --coin-elev-contact-alpha: 0.62;
       --coin-elev-contact-blur: 6px;
       --coin-elev-dupe-alpha: 0.56;
-      --coin-elev-dupe-scale: 0.985;
-      --coin-elev-amplify: 3;
+      --coin-elev-dupe-scale: 1;
+      --coin-elev-amplify: 1;
     }
     * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
     html, body { margin: 0; background: transparent; color: var(--text); font-family: 'Khymeryyanroman4', Inter, system-ui, sans-serif; letter-spacing: 0.10em; height: 100%; }
@@ -1068,6 +1068,11 @@
       display: block;
       border-radius: 0;
       pointer-events: none;
+      /* translateZ elevates just the PNG within its own perspective context.
+         transform-origin bottom-centre keeps the card grounded; the top rises
+         toward the camera so the physical face (at CSS position) peeks below. */
+      transform: perspective(var(--card-elev-perspective)) translateZ(var(--card-elev-lift-z));
+      transform-origin: 50% 100%;
       filter:
         drop-shadow(var(--card-elev-shadow-x) var(--card-elev-shadow-y) var(--card-elev-shadow-blur) rgba(0,0,0,var(--card-elev-shadow-alpha)))
         drop-shadow(0 1px 0 rgba(255,255,255,0.15));
@@ -2218,7 +2223,7 @@
       position: absolute;
       inset: 0;
       pointer-events: none;
-      z-index: 100;
+      z-index: 1;
       overflow: hidden;
     }
     .physFace {
@@ -7240,23 +7245,27 @@
         }
 
         const { perspective, lift, amplify } = cfg;
-        const liftFactor = (lift / perspective) * amplify;
-        const invScale = (perspective - lift) / perspective; // size stays near 1:1
-
-        const perspOriginX = appRect.left + appRect.width  * 0.5;
-        const perspOriginY = appRect.top  + appRect.height; // 100% = bottom of #app
-
-        const projCx = projRect.left + projRect.width  * 0.5;
-        const projCy = projRect.top  + projRect.height * 0.5;
-
-        // Move face toward the vanishing origin (downward) relative to card
-        const groundCx = projCx + (perspOriginX - projCx) * liftFactor;
-        const groundCy = projCy + (perspOriginY - projCy) * liftFactor;
-        const groundW  = projRect.width  * invScale;
+        // img.cardArt uses `perspective(P) translateZ(L)` with transform-origin
+        // at its bottom-centre, so the bottom edge stays fixed while the top rises.
+        // Inverse projection: ground position = CSS position before that transform.
+        //   projBottom == cssBottom  (bottom-centre is the fixed anchor)
+        //   projHeight == cssHeight * P/(P-L)  →  cssHeight = projHeight * (P-L)/P
+        //   cssTop     == projBottom - cssHeight
+        // amplify lets the user exaggerate the offset for tuning; 1 = physically correct.
+        const invScale = (perspective - lift) / perspective;
         const groundH  = projRect.height * invScale;
+        const groundW  = projRect.width;  // width is unchanged (no x-perspective distortion)
+        const projBottom = projRect.top + projRect.height;
+        const groundTop  = projBottom - groundH;
+        const groundCx   = projRect.left + projRect.width * 0.5;
+        const groundCy   = groundTop + groundH * 0.5;
+        // amplify > 1 pushes the face further below the card for visibility
+        const extraY = (projRect.top - groundTop) * (amplify - 1);
+        const finalCx = groundCx;
+        const finalCy = groundCy + extraY;
 
-        faceEl.style.left   = `${(groundCx - groundW * 0.5 - appRect.left).toFixed(1)}px`;
-        faceEl.style.top    = `${(groundCy - groundH * 0.5 - appRect.top ).toFixed(1)}px`;
+        faceEl.style.left   = `${(finalCx - groundW * 0.5 - appRect.left).toFixed(1)}px`;
+        faceEl.style.top    = `${(finalCy - groundH * 0.5 - appRect.top ).toFixed(1)}px`;
         faceEl.style.width  = `${groundW.toFixed(1)}px`;
         faceEl.style.height = `${groundH.toFixed(1)}px`;
 
