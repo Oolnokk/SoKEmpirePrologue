@@ -392,6 +392,11 @@ window.SCRATCHBONES_CONFIG = {
           "contactAlpha": 0.2
         },
         "candlelight": {
+          "masking": {
+            "gatherCadenceMs": 100,
+            "debugImmuneMasks": false,
+            "textMaskPaddingPx": 1
+          },
           "targets": {
             "backlit": {
               "container": ["#aiSidebar", ".humanSeatZone", ".turnSpotlight"],

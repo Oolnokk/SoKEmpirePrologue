@@ -7126,6 +7126,7 @@
     // glow spills from the edges via blur-blit (no hard edge, low desaturation).
     const CANDLELIGHT_ROLE_KEYS = ['container', 'avatar', 'text'];
     const candlelightConfig = SCRATCHBONES_GAME.layout?.lighting?.candlelight || {};
+    const candlelightMaskingConfig = candlelightConfig.masking || {};
     const candlelightTargets = candlelightConfig.targets || {};
     const candlelightProjectionRoles = candlelightConfig.projectionRoles || {};
     const LEGACY_PROJ_ID_TO_BACKLIT = {
@@ -7164,6 +7165,20 @@
     ]);
     const BACKLIT_SELECTOR_SET = new Set(BACKLIT_SELECTORS);
     const IMMUNE_CAPABLE_SELECTOR_SET = new Set(IMMUNE_CAPABLE_SELECTORS);
+    const CANDLE_SELECTOR_ROLES = new Map();
+    function registerSelectorRoles(targetGroup) {
+      if (!targetGroup || typeof targetGroup !== 'object') return;
+      CANDLELIGHT_ROLE_KEYS.forEach(role => {
+        normalizeSelectorArray(targetGroup[role]).forEach(sel => {
+          if (!CANDLE_SELECTOR_ROLES.has(sel)) CANDLE_SELECTOR_ROLES.set(sel, role);
+        });
+      });
+    }
+    registerSelectorRoles(candlelightTargets.backlit);
+    registerSelectorRoles(candlelightTargets.immuneCapable);
+    BACKLIT_SELECTORS.forEach(sel => {
+      if (!CANDLE_SELECTOR_ROLES.has(sel)) CANDLE_SELECTOR_ROLES.set(sel, 'container');
+    });
     const PROJ_ID_TO_BACKLIT = Object.fromEntries(
       Object.keys(LEGACY_PROJ_ID_TO_BACKLIT).map(projId => [projId, getProjectionRoleSelectors(projId, 'container')[0] || LEGACY_PROJ_ID_TO_BACKLIT[projId]])
     );
@@ -7173,7 +7188,118 @@
     // Per-selector state
     const TRACKED_CANDLE_SELECTORS = uniqSelectors([...BACKLIT_SELECTORS, ...IMMUNE_CAPABLE_SELECTORS]);
     const backlitState = new Map(TRACKED_CANDLE_SELECTORS.map(s => [s, { backlit: true, immune: false }]));
+    const IMMUNE_GATHER_CADENCE_MS = Math.max(16, Number(candlelightMaskingConfig.gatherCadenceMs) || 100);
+    const IMMUNE_TEXT_MASK_PADDING_PX = Math.max(0, Number(candlelightMaskingConfig.textMaskPaddingPx) || 1);
+    let DEBUG_IMMUNE_MASKS = Boolean(candlelightMaskingConfig.debugImmuneMasks);
+    const immuneMaskCache = new Map();
     let lastBacklitMs = 0, cachedBacklit = [], cachedImmune = [];
+    function fastHash(text) {
+      let hash = 2166136261;
+      for (let i = 0; i < text.length; i++) {
+        hash ^= text.charCodeAt(i);
+        hash = Math.imul(hash, 16777619);
+      }
+      return (hash >>> 0).toString(16);
+    }
+    function parseRadiusPx(value) {
+      const n = Number.parseFloat(value);
+      return Number.isFinite(n) ? n : 0;
+    }
+    function getBorderRadiusMeta(style) {
+      const tl = parseRadiusPx(style.borderTopLeftRadius);
+      const tr = parseRadiusPx(style.borderTopRightRadius);
+      const br = parseRadiusPx(style.borderBottomRightRadius);
+      const bl = parseRadiusPx(style.borderBottomLeftRadius);
+      return { tl, tr, br, bl, max: Math.max(tl, tr, br, bl) };
+    }
+    function classifyImmuneElement(el, role) {
+      if (!el) return 'unknown';
+      const tag = (el.tagName || '').toLowerCase();
+      if (role === 'text') return 'text';
+      if (tag === 'img' || tag === 'canvas' || role === 'avatar') {
+        if (tag === 'img' || tag === 'canvas') return 'avatar-visual';
+        if (el.querySelector('img,canvas')) return 'avatar-visual';
+        return 'avatar-container';
+      }
+      if (el.querySelector && !el.querySelector('img,canvas') && ((el.textContent || '').trim().length > 0)) return 'text';
+      return 'unknown';
+    }
+    function buildTextMask(meta) {
+      const txt = (meta.element?.innerText || meta.element?.textContent || '').trim();
+      if (!txt) return null;
+      const c = document.createElement('canvas');
+      const cw = Math.max(1, Math.ceil(meta.rect.w));
+      const ch = Math.max(1, Math.ceil(meta.rect.h));
+      c.width = cw;
+      c.height = ch;
+      const cctx = c.getContext('2d', { alpha: true });
+      cctx.clearRect(0, 0, cw, ch);
+      cctx.font = meta.computedStyle.font || `${meta.computedStyle.fontSize} ${meta.computedStyle.fontFamily}`;
+      cctx.textAlign = meta.computedStyle.textAlign === 'center' ? 'center' : (meta.computedStyle.textAlign === 'right' || meta.computedStyle.textAlign === 'end' ? 'right' : 'left');
+      cctx.textBaseline = 'top';
+      cctx.direction = meta.computedStyle.direction || 'ltr';
+      cctx.fillStyle = '#000';
+      const lines = txt.split('\n').map(s => s.trim()).filter(Boolean);
+      const lineHeight = parseRadiusPx(meta.computedStyle.lineHeight) || (parseRadiusPx(meta.computedStyle.fontSize) * 1.2) || 16;
+      const anchorX = cctx.textAlign === 'center' ? cw * 0.5 : (cctx.textAlign === 'right' ? cw - IMMUNE_TEXT_MASK_PADDING_PX : IMMUNE_TEXT_MASK_PADDING_PX);
+      lines.forEach((line, idx) => {
+        cctx.fillText(line, anchorX, IMMUNE_TEXT_MASK_PADDING_PX + idx * lineHeight);
+      });
+      return c;
+    }
+    function buildVisualMask(meta) {
+      const source = meta.element?.tagName?.toLowerCase() === 'img'
+        ? meta.element
+        : meta.element?.tagName?.toLowerCase() === 'canvas'
+          ? meta.element
+          : meta.element?.querySelector('img,canvas');
+      if (!source) return null;
+      const sw = Math.max(1, Math.ceil(meta.rect.w));
+      const sh = Math.max(1, Math.ceil(meta.rect.h));
+      const c = document.createElement('canvas');
+      c.width = sw;
+      c.height = sh;
+      const cctx = c.getContext('2d', { alpha: true });
+      cctx.clearRect(0, 0, sw, sh);
+      try {
+        cctx.drawImage(source, 0, 0, sw, sh);
+      } catch (_) {
+        return null;
+      }
+      cctx.globalCompositeOperation = 'source-in';
+      cctx.fillStyle = '#000';
+      cctx.fillRect(0, 0, sw, sh);
+      cctx.globalCompositeOperation = 'source-over';
+      return c;
+    }
+    function getImmuneMaskForMeta(meta) {
+      const sig = meta.signature;
+      if (immuneMaskCache.has(sig)) return immuneMaskCache.get(sig);
+      let maskCanvas = null;
+      if (meta.type === 'avatar-visual') maskCanvas = buildVisualMask(meta);
+      else if (meta.type === 'text') maskCanvas = buildTextMask(meta);
+      const payload = { type: meta.type, maskCanvas };
+      immuneMaskCache.set(sig, payload);
+      return payload;
+    }
+    function addRoundedRectPath(ctx, x, y, w, h, radii) {
+      const maxR = Math.min(w, h) * 0.5;
+      const tl = Math.min(radii.tl || 0, maxR);
+      const tr = Math.min(radii.tr || 0, maxR);
+      const br = Math.min(radii.br || 0, maxR);
+      const bl = Math.min(radii.bl || 0, maxR);
+      ctx.beginPath();
+      ctx.moveTo(x + tl, y);
+      ctx.lineTo(x + w - tr, y);
+      ctx.quadraticCurveTo(x + w, y, x + w, y + tr);
+      ctx.lineTo(x + w, y + h - br);
+      ctx.quadraticCurveTo(x + w, y + h, x + w - br, y + h);
+      ctx.lineTo(x + bl, y + h);
+      ctx.quadraticCurveTo(x, y + h, x, y + h - bl);
+      ctx.lineTo(x, y + tl);
+      ctx.quadraticCurveTo(x, y, x + tl, y);
+      ctx.closePath();
+    }
     function getCandleSelectors(targetOrProjId, role) {
       if (Array.isArray(targetOrProjId)) return uniqSelectors(targetOrProjId);
       if (targetOrProjId && typeof targetOrProjId === 'object') {
@@ -7205,32 +7331,96 @@
     }
     function maybeGatherBacklit(app) {
       const now = performance.now();
-      if (now - lastBacklitMs < 100) return;
+      if (now - lastBacklitMs < IMMUNE_GATHER_CADENCE_MS) return;
       lastBacklitMs = now;
       const ar = app.getBoundingClientRect();
+      const seenImmuneSignatures = new Set();
       cachedBacklit = []; cachedImmune = [];
       for (const sel of TRACKED_CANDLE_SELECTORS) {
         const st = backlitState.get(sel);
+        const role = CANDLE_SELECTOR_ROLES.get(sel) || 'container';
         const elements = app.querySelectorAll(sel);
         if (!elements.length) continue;
         elements.forEach(el => {
           if (!el || el.hidden) return;
           const r = el.getBoundingClientRect();
           if (r.width < 1 || r.height < 1) return;
+          const style = getComputedStyle(el);
           const rect = { x: r.left - ar.left, y: r.top - ar.top, w: r.width, h: r.height };
-          if (st?.immune) { cachedImmune.push(rect); return; }
+          if (st?.immune) {
+            const borderRadius = getBorderRadiusMeta(style);
+            const type = classifyImmuneElement(el, role);
+            const textHash = type === 'text' ? fastHash((el.innerText || el.textContent || '').trim()) : '';
+            const src = (el.currentSrc || el.src || el.querySelector?.('img')?.currentSrc || '');
+            const signature = [
+              sel,
+              role,
+              type,
+              Math.round(rect.w),
+              Math.round(rect.h),
+              borderRadius.tl, borderRadius.tr, borderRadius.br, borderRadius.bl,
+              textHash,
+              src
+            ].join('|');
+            seenImmuneSignatures.add(signature);
+            cachedImmune.push({
+              selector: sel,
+              role,
+              element: el,
+              rect,
+              borderRadius,
+              computedStyle: style,
+              styleSignature: `${style.font}|${style.textAlign}|${style.direction}|${style.lineHeight}`,
+              type,
+              textHash,
+              signature
+            });
+            return;
+          }
           if (BACKLIT_SELECTOR_SET.has(sel) && st?.backlit !== false) cachedBacklit.push(rect);
         });
       }
+      if (immuneMaskCache.size) {
+        for (const key of immuneMaskCache.keys()) {
+          if (!seenImmuneSignatures.has(key)) immuneMaskCache.delete(key);
+        }
+      }
     }
 
-    // Punch out immune element rects from any canvas (destination-out erase).
+    // Punch out immune element masks from any canvas (destination-out erase).
     function punchOutImmune(ctx) {
       if (!cachedImmune.length) return;
       ctx.save();
       ctx.globalCompositeOperation = 'destination-out';
       ctx.fillStyle = '#000';
-      for (const r of cachedImmune) ctx.fillRect(r.x, r.y, r.w, r.h);
+      for (const immune of cachedImmune) {
+        const { rect, borderRadius, type } = immune;
+        if (type === 'avatar-container' && borderRadius.max > 0) {
+          addRoundedRectPath(ctx, rect.x, rect.y, rect.w, rect.h, borderRadius);
+          ctx.fill();
+          continue;
+        }
+        if (type === 'avatar-visual' || type === 'text') {
+          const mask = getImmuneMaskForMeta(immune);
+          if (mask?.maskCanvas) {
+            ctx.drawImage(mask.maskCanvas, rect.x, rect.y, rect.w, rect.h);
+            continue;
+          }
+        }
+        ctx.fillRect(rect.x, rect.y, rect.w, rect.h);
+      }
+      ctx.restore();
+    }
+    function drawImmuneDebugOverlay(ctx) {
+      if (!DEBUG_IMMUNE_MASKS || !cachedImmune.length) return;
+      ctx.save();
+      ctx.globalCompositeOperation = 'source-over';
+      cachedImmune.forEach(immune => {
+        const { rect, type } = immune;
+        ctx.strokeStyle = type === 'text' ? 'rgba(80,180,255,0.9)' : (type === 'avatar-visual' ? 'rgba(120,255,120,0.9)' : 'rgba(255,120,120,0.9)');
+        ctx.lineWidth = 1.5;
+        ctx.strokeRect(rect.x, rect.y, rect.w, rect.h);
+      });
       ctx.restore();
     }
 
@@ -7465,6 +7655,7 @@
       glowCtx.clearRect(0, 0, w, h);
       glowCtx.drawImage(workGlow, 0, 0);
       punchOutImmune(glowCtx);
+      drawImmuneDebugOverlay(glowCtx);
 
       // ── Lerp clone lighting ─────────────────────────────────────────────────
       // Clones on document.body get a CSS filter that approximates their position
@@ -7503,6 +7694,8 @@
       set backlitAlpha(v)  { BACKLIT_ALPHA = clamp(Number(v) || 0, 0, 1); },
       get backlitBlur()    { return BACKLIT_BLUR; },
       set backlitBlur(v)   { BACKLIT_BLUR = Math.max(0, Number(v) || 0); },
+      get debugImmuneMasks()  { return DEBUG_IMMUNE_MASKS; },
+      set debugImmuneMasks(v) { DEBUG_IMMUNE_MASKS = Boolean(v); },
       resolveSelectors(targetOrProjId, role) { return getCandleSelectors(targetOrProjId, role); },
       getState(sel)        { return backlitState.get(sel); },
       getStates(targetOrProjId, role) {
@@ -7545,6 +7738,10 @@
             <input class="projVarInput" type="number" data-cl="backlitBlur" step="1" min="0" max="300" value="${window.__candleLight.backlitBlur}">
             <input class="projVarInput" type="range"  data-cl="backlitBlur" step="1" min="0" max="300" value="${window.__candleLight.backlitBlur}">
           </label>
+          <label class="projVarRow" style="gap:8px;align-items:center">
+            <span class="projVarLabel">debug immune masks</span>
+            <input type="checkbox" data-cl="debugImmuneMasks" ${window.__candleLight.debugImmuneMasks ? 'checked' : ''}>
+          </label>
           ${st ? `<div style="margin-top:6px;font-size:0.82em;color:#cdbb9f;margin-bottom:2px">${sel}</div>
           <label class="projVarRow" style="gap:8px;align-items:center">
             <span class="projVarLabel">backlit</span>
@@ -7565,6 +7762,8 @@
           } else if (key === 'backlitBlur') {
             window.__candleLight.backlitBlur = e.target.value;
             sec.querySelectorAll('[data-cl="backlitBlur"]').forEach(i => { if (i !== e.target) i.value = e.target.value; });
+          } else if (key === 'debugImmuneMasks') {
+            window.__candleLight.debugImmuneMasks = e.target.checked;
           } else if (key === 'backlit' && elSel) {
             window.__candleLight.setBacklit(elSel, e.target.checked);
           } else if (key === 'immune' && elSel) {
