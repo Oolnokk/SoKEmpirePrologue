@@ -2,49 +2,124 @@
  * CandleLightOverlay2D.js
  *
  * Self-contained 2D canvas overlay that renders animated flickering candlelight
- * glows on top of the game stage.  Designed as a drop-in module: it creates its
- * own canvas inside a given container, manages its own RAF loop, and optionally
- * connects to window.dayNightSystem so it only renders when candles should be lit.
- *
- * Quick start (from app.js):
- *   const { initCandleLightOverlay } = await import('../lighting/CandleLightOverlay2D.js');
- *   initCandleLightOverlay();
- *
- * Single-light/backward-compatible usage:
- *   const overlay = new CandleLightOverlay2D(stageEl, { intensity: 0.9, radius: 500 });
- *
- * Multi-layer usage:
- *   const overlay = new CandleLightOverlay2D(stageEl, {
- *     layers: [
- *       { id: 'table-left', enabled: true,  posNormX: 0.34, posNormY: 0.64, intensity: 0.55, radius: 380 },
- *       { id: 'table-right', enabled: true, posNormX: 0.68, posNormY: 0.62, intensity: 0.5, radius: 360 },
- *     ],
- *   });
- *   overlay.setLayerEnabled('table-left', false);
- *
- * Advanced:
- *   overlay.attach(dayNightSystem);   // optional – auto-polls window.dayNightSystem by default
- *   // ...later:
- *   overlay.destroy();
+ * glows on top of the game stage. Supports multiple named layers, simple
+ * enabled booleans, and a small Map -> Vars bridge for checkbox toggles.
  */
 
 const DEFAULT_LAYER_ID = 'default';
+const VARS_PANEL_ID = 'candlelightLayerVarsPanel';
+
+function coerceNumber(value, fallback) {
+  const n = Number(value);
+  return Number.isFinite(n) ? n : fallback;
+}
+
+function getScratchbonesCandlelightConfig() {
+  return window?.SCRATCHBONES_CONFIG?.game?.layout?.lighting?.candlelight || null;
+}
+
+function ensureScratchbonesCandlelightConfig() {
+  if (typeof window === 'undefined') return null;
+  window.SCRATCHBONES_CONFIG ||= {};
+  window.SCRATCHBONES_CONFIG.game ||= {};
+  window.SCRATCHBONES_CONFIG.game.layout ||= {};
+  window.SCRATCHBONES_CONFIG.game.layout.lighting ||= {};
+  window.SCRATCHBONES_CONFIG.game.layout.lighting.candlelight ||= {};
+  return window.SCRATCHBONES_CONFIG.game.layout.lighting.candlelight;
+}
+
+function getConfiguredLayers() {
+  const config = getScratchbonesCandlelightConfig();
+  return Array.isArray(config?.layers) ? config.layers : null;
+}
+
+function mergeOptionsWithConfigLayers(options = {}) {
+  if (Array.isArray(options.layers) && options.layers.length) return options;
+  const configLayers = getConfiguredLayers();
+  if (!configLayers?.length) return options;
+  return { ...options, layers: configLayers };
+}
+
+function writeLayerEnabledToConfig(layerId, enabled) {
+  const config = ensureScratchbonesCandlelightConfig();
+  if (!config) return;
+  config.layers = Array.isArray(config.layers) ? config.layers : [];
+  let layer = config.layers.find((entry) => entry?.id === layerId);
+  if (!layer) {
+    layer = { id: layerId };
+    config.layers.push(layer);
+  }
+  layer.enabled = Boolean(enabled);
+}
+
+function findVisibleVarsContainer() {
+  if (typeof document === 'undefined') return null;
+
+  const directSelectors = [
+    '#projectionVarsPanel',
+    '#varsPanel',
+    '[data-projection-vars-panel]',
+    '[data-vars-panel]',
+    '.projectionVarsPanel',
+    '.varsPanel',
+    '.vars-panel',
+  ];
+
+  for (const selector of directSelectors) {
+    const el = document.querySelector(selector);
+    if (isUsableContainer(el)) return el;
+  }
+
+  const candidates = Array.from(document.querySelectorAll('details, aside, section, div, form'));
+  const visibleCandidates = candidates.filter(isUsableContainer);
+
+  const preferred = visibleCandidates.find((el) => {
+    const text = compactText(el);
+    return /projection\s+vars/i.test(text) || /map\s*[-→>]\s*vars/i.test(text);
+  });
+  if (preferred) return preferred;
+
+  const loose = visibleCandidates.find((el) => {
+    const text = compactText(el);
+    return /^vars\b/i.test(text) || /\bvars\b/i.test(text);
+  });
+  if (loose) return loose;
+
+  const debugDetails = Array.from(document.querySelectorAll('details.debug, details')).find(isUsableContainer);
+  return debugDetails || null;
+}
+
+function compactText(el) {
+  return String(el?.textContent || '').replace(/\s+/g, ' ').trim().slice(0, 240);
+}
+
+function isUsableContainer(el) {
+  if (!el || el.id === VARS_PANEL_ID || el.closest?.(`#${VARS_PANEL_ID}`)) return false;
+  if (el === document.body || el === document.documentElement) return false;
+  const rect = el.getBoundingClientRect?.();
+  const style = window.getComputedStyle?.(el);
+  if (!rect || !style) return false;
+  if (style.display === 'none' || style.visibility === 'hidden') return false;
+  return rect.width > 20 && rect.height > 10;
+}
+
+function persistLayerListToConfig(layers) {
+  const config = ensureScratchbonesCandlelightConfig();
+  if (!config) return;
+  const existingById = new Map((Array.isArray(config.layers) ? config.layers : [])
+    .filter((entry) => entry?.id)
+    .map((entry) => [entry.id, entry]));
+  config.layers = layers.map((layer) => ({
+    ...(existingById.get(layer.id) || {}),
+    ...layer,
+    enabled: layer.enabled !== false,
+  }));
+}
 
 export class CandleLightOverlay2D {
-  /**
-   * @param {HTMLElement} container  - Element to inject the overlay canvas into (e.g. #gameStage).
-   * @param {object}      [options]
-   * @param {number}  [options.intensity=0.77]   - Overall brightness multiplier for the default layer (0.2–2.2).
-   * @param {number}  [options.radius=480]        - Falloff radius in CSS px for the default layer.
-   * @param {number}  [options.speed=4.17]        - Flicker animation speed for the default layer.
-   * @param {number}  [options.turbulence=1.0]    - Amount of position/intensity drift (0–1) for the default layer.
-   * @param {number}  [options.posNormX=0.5]      - Horizontal default-layer light position as 0–1 fraction.
-   * @param {number}  [options.posNormY=0.66]     - Vertical default-layer light position as 0–1 fraction.
-   * @param {Array<object>} [options.layers]      - Optional multi-light layer definitions. Each layer supports id, enabled, intensity, radius, speed, turbulence, posNormX, and posNormY.
-   * @param {number}  [options.zIndex=2]          - CSS z-index of the overlay canvas.
-   * @param {boolean} [options.autoConnect=true]  - Poll for window.dayNightSystem automatically.
-   */
   constructor(container, options = {}) {
+    const resolvedOptions = mergeOptionsWithConfigLayers(options);
+
     this._container = container;
     this._destroyed = false;
     this._afId = null;
@@ -53,26 +128,26 @@ export class CandleLightOverlay2D {
     this._visible = true;
     this._w = 0;
     this._h = 0;
+    this._varsBridge = null;
 
     // Rendering parameters kept for old callers that read/write the overlay directly.
-    this.intensity  = options.intensity  ?? 0.77;
-    this.radius     = options.radius     ?? 480;
-    this.speed      = options.speed      ?? 4.17;
-    this.turbulence = options.turbulence ?? 1.0;
+    this.intensity = resolvedOptions.intensity ?? 0.77;
+    this.radius = resolvedOptions.radius ?? 480;
+    this.speed = resolvedOptions.speed ?? 4.17;
+    this.turbulence = resolvedOptions.turbulence ?? 1.0;
 
     // Default light position kept for old callers that read/write the overlay directly.
-    this._posNormX = options.posNormX ?? 0.5;
-    this._posNormY = options.posNormY ?? 0.66;
+    this._posNormX = resolvedOptions.posNormX ?? 0.5;
+    this._posNormY = resolvedOptions.posNormY ?? 0.66;
 
     // Candle layers are used by _draw() to render one or more independently toggleable glows.
-    this._layers = this._normalizeLayers(options.layers, options);
+    this._layers = this._normalizeLayers(resolvedOptions.layers, resolvedOptions);
+    persistLayerListToConfig(this.getLayers());
 
-    // Bound event handler kept so it can be removed later
     this._onTimeChange = () => {
       this._visible = this._dayNight ? this._dayNight.areCandlesLit() : true;
     };
 
-    // Output canvas – sits above canvas#game (z-index 1), below .controls-overlay (z-index 4)
     this._canvas = document.createElement('canvas');
     this._canvas.style.cssText = [
       'position:absolute',
@@ -80,17 +155,15 @@ export class CandleLightOverlay2D {
       'width:100%',
       'height:100%',
       'pointer-events:none',
-      `z-index:${options.zIndex ?? 2}`,
+      `z-index:${resolvedOptions.zIndex ?? 2}`,
       'border-radius:inherit',
     ].join(';');
     this._canvas.setAttribute('aria-hidden', 'true');
     this._ctx = this._canvas.getContext('2d', { alpha: true });
 
-    // Off-screen composition layer (CSS px dimensions, no DPR scaling needed)
     this._lightCanvas = document.createElement('canvas');
     this._lightCtx = this._lightCanvas.getContext('2d', { alpha: true });
 
-    // Per-light scratch layer prevents one layer's vignette from darkening other enabled layers.
     this._layerCanvas = document.createElement('canvas');
     this._layerCtx = this._layerCanvas.getContext('2d', { alpha: true });
 
@@ -99,50 +172,25 @@ export class CandleLightOverlay2D {
     this._ro = new ResizeObserver(() => this._onResize());
     this._ro.observe(container);
     this._onResize();
-
     this._startLoop();
 
-    if (options.autoConnect !== false) {
-      this._autoPoll();
-    }
+    if (resolvedOptions.autoConnect !== false) this._autoPoll();
   }
 
-  // ── Public API ────────────────────────────────────────────────────────────
-
-  /**
-   * Apply numeric control settings from a demo-exported JSON object.
-   * Image data (surface / occluders) is intentionally ignored.
-   *
-   * Radius and light position are scaled from the demo's reference viewport to the
-   * current stage size.  The demo does not embed its viewport dimensions, so we
-   * assume 1280×720 by default – override with the optional second argument if you
-   * know the exact screen size the JSON was exported from.
-   *
-   * New multi-layer JSON may pass either `layers` or `lights` as an array. Each
-   * layer/light may use normalized positions (`posNormX` / `posNormY`) or absolute
-   * demo coordinates (`x` / `y`).
-   *
-   * @param {object} json             - Parsed JSON from the candlelight demo's "Export Settings" button.
-   * @param {object} [refViewport]    - Reference viewport the JSON was created on.
-   * @param {number} [refViewport.width=1280]
-   * @param {number} [refViewport.height=720]
-   */
   loadSettings(json, { width: refW = 1280, height: refH = 720 } = {}) {
     if (!json || typeof json !== 'object') return;
     const c = json.controls || {};
 
-    if (c.intensity  != null) this.intensity  = Number(c.intensity);
-    if (c.speed      != null) this.speed      = Number(c.speed);
+    if (c.intensity != null) this.intensity = Number(c.intensity);
+    if (c.speed != null) this.speed = Number(c.speed);
     if (c.turbulence != null) this.turbulence = Number(c.turbulence);
 
-    // Scale radius from reference viewport to current stage size
     if (c.radius != null) {
       const stageMin = Math.min(this._w || refW, this._h || refH);
-      const refMin   = Math.min(refW, refH);
+      const refMin = Math.min(refW, refH);
       this.radius = Number(c.radius) * (stageMin / refMin);
     }
 
-    // Translate absolute light position to 0–1 fractions
     if (json.light) {
       if (typeof json.light.x === 'number') this._posNormX = json.light.x / refW;
       if (typeof json.light.y === 'number') this._posNormY = json.light.y / refH;
@@ -151,6 +199,7 @@ export class CandleLightOverlay2D {
     const layerDefs = Array.isArray(json.layers)
       ? json.layers
       : (Array.isArray(json.lights) ? json.lights : null);
+
     if (layerDefs) {
       this.setLayers(layerDefs.map((layer, index) => this._normalizeLayerFromJson(layer, index, refW, refH)));
       return;
@@ -168,12 +217,6 @@ export class CandleLightOverlay2D {
     }]);
   }
 
-  /**
-   * Manually attach to a DayNightSystem instance.
-   * The overlay will show only when dayNightSystem.areCandlesLit() returns true.
-   *
-   * @param {import('../../src/lighting/DayNightSystem.js').DayNightSystem} dayNightSystem
-   */
   attach(dayNightSystem) {
     this.detach();
     this._dayNight = dayNightSystem;
@@ -185,21 +228,18 @@ export class CandleLightOverlay2D {
     }
   }
 
-  /** Disconnect from the DayNightSystem; overlay stays visible until destroyed. */
   detach() {
     if (!this._dayNight) return;
     this._dayNight.off('timeChange', this._onTimeChange);
     this._dayNight = null;
   }
 
-  /** Set default-layer light position as a 0–1 fraction of the container size. */
   setPositionNorm(x, y) {
     this._posNormX = x;
     this._posNormY = y;
     this.setLayerPositionNorm(DEFAULT_LAYER_ID, x, y);
   }
 
-  /** Replace all candlelight layers. Empty/invalid arrays fall back to one default layer. */
   setLayers(layers = []) {
     this._layers = this._normalizeLayers(layers, {
       intensity: this.intensity,
@@ -210,52 +250,63 @@ export class CandleLightOverlay2D {
       posNormY: this._posNormY,
     });
     this._syncDefaultLayerFields();
+    persistLayerListToConfig(this.getLayers());
+    this.refreshVarsPanel();
     return this.getLayers();
   }
 
-  /** Return a safe copy of the current candlelight layer settings. */
   getLayers() {
     return this._layers.map((layer) => ({ ...layer }));
   }
 
-  /** Enable/disable one layer by id or array index. Returns true if a layer was found. */
   setLayerEnabled(idOrIndex, enabled) {
     const layer = this._findLayer(idOrIndex);
     if (!layer) return false;
     layer.enabled = Boolean(enabled);
+    writeLayerEnabledToConfig(layer.id, layer.enabled);
+    this.refreshVarsPanel();
     return true;
   }
 
-  /** Toggle one layer by id or array index. Returns the new boolean state, or null if not found. */
   toggleLayer(idOrIndex) {
     const layer = this._findLayer(idOrIndex);
     if (!layer) return null;
     layer.enabled = !layer.enabled;
+    writeLayerEnabledToConfig(layer.id, layer.enabled);
+    this.refreshVarsPanel();
     return layer.enabled;
   }
 
-  /** Set one layer's normalized position by id or array index. Returns true if a layer was found. */
   setLayerPositionNorm(idOrIndex, x, y) {
     const layer = this._findLayer(idOrIndex);
     if (!layer) return false;
-    layer.posNormX = this._coerceNumber(x, layer.posNormX);
-    layer.posNormY = this._coerceNumber(y, layer.posNormY);
+    layer.posNormX = coerceNumber(x, layer.posNormX);
+    layer.posNormY = coerceNumber(y, layer.posNormY);
+    persistLayerListToConfig(this.getLayers());
     this._syncDefaultLayerFields();
     return true;
   }
 
-  /** Remove the overlay from the DOM and stop all timers. */
+  installVarsBridge() {
+    if (this._varsBridge) return this._varsBridge;
+    this._varsBridge = installCandlelightLayerVarsBridge(this);
+    return this._varsBridge;
+  }
+
+  refreshVarsPanel() {
+    this._varsBridge?.refresh?.();
+  }
+
   destroy() {
     if (this._destroyed) return;
     this._destroyed = true;
     this.detach();
     cancelAnimationFrame(this._afId);
     if (this._pollTimer) clearInterval(this._pollTimer);
+    this._varsBridge?.destroy?.();
     this._ro.disconnect();
     if (this._canvas.parentNode) this._canvas.parentNode.removeChild(this._canvas);
   }
-
-  // ── Private ───────────────────────────────────────────────────────────────
 
   _onResize() {
     const rect = this._container.getBoundingClientRect();
@@ -263,15 +314,15 @@ export class CandleLightOverlay2D {
     const h = Math.max(1, Math.round(rect.height));
     const dpr = Math.min(devicePixelRatio || 1, 2);
 
-    this._canvas.width  = w * dpr;
+    this._canvas.width = w * dpr;
     this._canvas.height = h * dpr;
-    this._canvas.style.width  = `${w}px`;
+    this._canvas.style.width = `${w}px`;
     this._canvas.style.height = `${h}px`;
     this._ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
-    this._lightCanvas.width  = w;
+    this._lightCanvas.width = w;
     this._lightCanvas.height = h;
-    this._layerCanvas.width  = w;
+    this._layerCanvas.width = w;
     this._layerCanvas.height = h;
     this._w = w;
     this._h = h;
@@ -285,14 +336,10 @@ export class CandleLightOverlay2D {
         this._pollTimer = null;
         return;
       }
-      if (window.dayNightSystem) {
-        this.attach(window.dayNightSystem);
-      }
+      if (window.dayNightSystem) this.attach(window.dayNightSystem);
     };
     tryConnect();
-    if (!this._dayNight) {
-      this._pollTimer = setInterval(tryConnect, 500);
-    }
+    if (!this._dayNight) this._pollTimer = setInterval(tryConnect, 500);
   }
 
   _startLoop() {
@@ -313,22 +360,22 @@ export class CandleLightOverlay2D {
     const id = typeof layer.id === 'string' && layer.id.trim() ? layer.id.trim() : (index === 0 ? DEFAULT_LAYER_ID : `layer-${index + 1}`);
     return {
       id,
-      // enabled is intentionally a simple boolean used by setLayerEnabled() and debug controls.
+      // Used by Map -> Vars checkboxes and _draw() to skip this layer.
       enabled: layer.enabled !== false,
-      // intensity is used by _drawLayer() to scale this layer's alpha.
-      intensity: this._coerceNumber(layer.intensity, fallback.intensity ?? this.intensity ?? 0.77),
-      // radius is used by _drawLayer() as the light falloff size in CSS px.
-      radius: this._coerceNumber(layer.radius, fallback.radius ?? this.radius ?? 480),
-      // speed is used by _drawLayer() to advance this layer's flicker noise.
-      speed: this._coerceNumber(layer.speed, fallback.speed ?? this.speed ?? 4.17),
-      // turbulence is used by _drawLayer() for position and alpha flicker drift.
-      turbulence: this._coerceNumber(layer.turbulence, fallback.turbulence ?? this.turbulence ?? 1.0),
-      // posNormX is used by _drawLayer() as the normalized horizontal source position.
-      posNormX: this._coerceNumber(layer.posNormX ?? layer.xNorm, fallback.posNormX ?? this._posNormX ?? 0.5),
-      // posNormY is used by _drawLayer() as the normalized vertical source position.
-      posNormY: this._coerceNumber(layer.posNormY ?? layer.yNorm, fallback.posNormY ?? this._posNormY ?? 0.66),
-      // phaseOffset is used by _drawLayer() so multiple lights do not flicker in lockstep.
-      phaseOffset: this._coerceNumber(layer.phaseOffset, index * 1.731),
+      // Used by _drawLayer() to scale this layer's alpha.
+      intensity: coerceNumber(layer.intensity, fallback.intensity ?? this.intensity ?? 0.77),
+      // Used by _drawLayer() as the light falloff size in CSS px.
+      radius: coerceNumber(layer.radius, fallback.radius ?? this.radius ?? 480),
+      // Used by _drawLayer() to advance this layer's flicker noise.
+      speed: coerceNumber(layer.speed, fallback.speed ?? this.speed ?? 4.17),
+      // Used by _drawLayer() for position and alpha flicker drift.
+      turbulence: coerceNumber(layer.turbulence, fallback.turbulence ?? this.turbulence ?? 1.0),
+      // Used by _drawLayer() as the normalized horizontal source position.
+      posNormX: coerceNumber(layer.posNormX ?? layer.xNorm, fallback.posNormX ?? this._posNormX ?? 0.5),
+      // Used by _drawLayer() as the normalized vertical source position.
+      posNormY: coerceNumber(layer.posNormY ?? layer.yNorm, fallback.posNormY ?? this._posNormY ?? 0.66),
+      // Used by _drawLayer() so multiple lights do not flicker in lockstep.
+      phaseOffset: coerceNumber(layer.phaseOffset, index * 1.731),
     };
   }
 
@@ -346,9 +393,7 @@ export class CandleLightOverlay2D {
   }
 
   _findLayer(idOrIndex) {
-    if (typeof idOrIndex === 'number') {
-      return this._layers[idOrIndex] || null;
-    }
+    if (typeof idOrIndex === 'number') return this._layers[idOrIndex] || null;
     const id = String(idOrIndex ?? '').trim();
     if (!id) return null;
     return this._layers.find((layer) => layer.id === id) || null;
@@ -365,40 +410,33 @@ export class CandleLightOverlay2D {
     this._posNormY = defaultLayer.posNormY;
   }
 
-  _coerceNumber(value, fallback) {
-    const n = Number(value);
-    return Number.isFinite(n) ? n : fallback;
-  }
-
-  // ── Rendering helpers (ported from the candlelight demo) ─────────────────
-
   _clamp(v, lo, hi) {
     return v < lo ? lo : v > hi ? hi : v;
   }
 
   _smoothNoise(t) {
     return (
-      Math.sin(t * 1.7)         * 0.44 +
-      Math.sin(t * 4.9  + 1.8) * 0.31 +
-      Math.sin(t * 9.3  + 4.2) * 0.18 +
+      Math.sin(t * 1.7) * 0.44 +
+      Math.sin(t * 4.9 + 1.8) * 0.31 +
+      Math.sin(t * 9.3 + 4.2) * 0.18 +
       Math.sin(t * 17.1 + 0.7) * 0.07
     );
   }
 
   _drawSoftEllipse(tCtx, x, y, radiusX, radiusY, coreRadiusY, alpha, innerColor, outerColor) {
-    const safeRY   = Math.max(1, radiusY);
+    const safeRY = Math.max(1, radiusY);
     const coreStop = this._clamp(coreRadiusY / safeRY, 0, 0.94);
-    const midStop  = this._clamp(coreStop + (1 - coreStop) * 0.32, coreStop, 0.98);
+    const midStop = this._clamp(coreStop + (1 - coreStop) * 0.32, coreStop, 0.98);
 
     tCtx.save();
     tCtx.translate(x, y);
     tCtx.scale(radiusX / safeRY, 1);
 
     const g = tCtx.createRadialGradient(0, 0, 0, 0, 0, safeRY);
-    g.addColorStop(0,        innerColor);
+    g.addColorStop(0, innerColor);
     g.addColorStop(coreStop, innerColor);
-    g.addColorStop(midStop,  `rgba(255,166,54,${alpha * 0.5})`);
-    g.addColorStop(1,        outerColor);
+    g.addColorStop(midStop, `rgba(255,166,54,${alpha * 0.5})`);
+    g.addColorStop(1, outerColor);
 
     tCtx.fillStyle = g;
     tCtx.beginPath();
@@ -412,13 +450,13 @@ export class CandleLightOverlay2D {
     tCtx.lineWidth = 1;
 
     for (let i = 0; i < streakCount; i++) {
-      const angle  = (i / streakCount) * Math.PI * 2 + Math.sin(time + i) * 0.08;
+      const angle = (i / streakCount) * Math.PI * 2 + Math.sin(time + i) * 0.08;
       const length = radius * (0.42 + (i % 4) * 0.055);
-      const start  = 34 + (i % 3) * 10;
+      const start = 34 + (i % 3) * 10;
       const wobble = Math.sin(time * (2.1 + i * 0.13) + i) * 18 * turbulence;
 
-      const x1 = x + Math.cos(angle) * start  + wobble;
-      const y1 = y + Math.sin(angle) * start  * 0.64;
+      const x1 = x + Math.cos(angle) * start + wobble;
+      const y1 = y + Math.sin(angle) * start * 0.64;
       const x2 = x + Math.cos(angle) * length + wobble * 0.45;
       const y2 = y + Math.sin(angle) * length * 0.64;
 
@@ -442,9 +480,9 @@ export class CandleLightOverlay2D {
     const turbulence = layer.turbulence;
     const layerTime = time + layer.phaseOffset;
 
-    const noise      = this._smoothNoise(layerTime * layer.speed);
+    const noise = this._smoothNoise(layerTime * layer.speed);
     const quickPulse = Math.sin(layerTime * 31.0) * 0.025;
-    const flicker    = this._clamp(1 + noise * 0.16 * turbulence + quickPulse, 0.72, 1.28);
+    const flicker = this._clamp(1 + noise * 0.16 * turbulence + quickPulse, 0.72, 1.28);
 
     const driftX = Math.sin(layerTime * 2.2) * 16 * turbulence + noise * 10 * turbulence;
     const driftY = Math.cos(layerTime * 2.9) * 10 * turbulence;
@@ -453,9 +491,8 @@ export class CandleLightOverlay2D {
     const ly = layer.posNormY * h - 12 + driftY;
 
     const pulseAlpha = this._clamp(0.86 + (flicker - 1) * 0.8, 0.68, 1.18);
-    const alpha      = this._clamp(0.5 * intensity * pulseAlpha, 0.08, 1.25);
+    const alpha = this._clamp(0.5 * intensity * pulseAlpha, 0.08, 1.25);
 
-    // Warm glow pool
     targetCtx.globalCompositeOperation = 'source-over';
     this._drawSoftEllipse(
       targetCtx,
@@ -468,7 +505,6 @@ export class CandleLightOverlay2D {
       'rgba(255,120,16,0)'
     );
 
-    // Bright core at the candle point
     this._drawSoftEllipse(
       targetCtx,
       lx, ly - 18,
@@ -478,16 +514,14 @@ export class CandleLightOverlay2D {
       'rgba(255,145,32,0)'
     );
 
-    // Vignette sharpens the outer falloff edge for this layer only.
     targetCtx.globalCompositeOperation = 'multiply';
     const vig = targetCtx.createRadialGradient(lx, ly, 22, lx, ly, falloffRadius);
-    vig.addColorStop(0,    'rgba(255,255,255,1)');
+    vig.addColorStop(0, 'rgba(255,255,255,1)');
     vig.addColorStop(0.56, 'rgba(255,218,184,0.13)');
-    vig.addColorStop(1,    'rgba(0,0,0,0.3)');
+    vig.addColorStop(1, 'rgba(0,0,0,0.3)');
     targetCtx.fillStyle = vig;
     targetCtx.fillRect(0, 0, w, h);
 
-    // Specular streaks on top
     targetCtx.globalCompositeOperation = 'screen';
     this._drawSpecularStreaks(targetCtx, lx, ly, falloffRadius, alpha, layerTime, turbulence);
   }
@@ -498,15 +532,12 @@ export class CandleLightOverlay2D {
     if (!w || !h) return;
 
     const ctx = this._ctx;
-
     if (!this._visible) {
       ctx.clearRect(0, 0, w, h);
       return;
     }
 
     const enabledLayers = this._layers.filter((layer) => layer.enabled !== false);
-
-    // ── Compose light layers ────────────────────────────────────────────────
     const lCtx = this._lightCtx;
     const layerCtx = this._layerCtx;
     lCtx.clearRect(0, 0, w, h);
@@ -519,26 +550,120 @@ export class CandleLightOverlay2D {
       lCtx.drawImage(this._layerCanvas, 0, 0, w, h);
     }
 
-    // ── Blit to output canvas ──────────────────────────────────────────────
     ctx.clearRect(0, 0, w, h);
-    if (enabledLayers.length) {
-      ctx.drawImage(this._lightCanvas, 0, 0, w, h);
-    }
+    if (enabledLayers.length) ctx.drawImage(this._lightCanvas, 0, 0, w, h);
   }
 }
 
-// ── Convenience initializer ───────────────────────────────────────────────────
+export function installCandlelightLayerVarsBridge(overlay) {
+  if (!overlay || typeof document === 'undefined') {
+    return { refresh() {}, destroy() {} };
+  }
 
-/**
- * Initialize a CandleLightOverlay2D on #gameStage.
- * Safe to call multiple times; only one overlay is created.
- * Auto-polls for window.dayNightSystem and attaches when found.
- *
- * @param {object} [options] - Passed through to CandleLightOverlay2D constructor.
- * @returns {CandleLightOverlay2D|null}
- */
+  let destroyed = false;
+  let scheduled = false;
+  let observer = null;
+
+  const scheduleRefresh = () => {
+    if (destroyed || scheduled) return;
+    scheduled = true;
+    requestAnimationFrame(() => {
+      scheduled = false;
+      refresh();
+    });
+  };
+
+  const refresh = () => {
+    if (destroyed) return;
+    const host = findVisibleVarsContainer();
+    const existing = document.getElementById(VARS_PANEL_ID);
+    if (!host) {
+      existing?.remove();
+      return;
+    }
+
+    const panel = existing || document.createElement('div');
+    panel.id = VARS_PANEL_ID;
+    panel.dataset.candlelightLayerVars = 'true';
+    panel.style.cssText = [
+      'margin-top:10px',
+      'padding:8px',
+      'border:1px solid rgba(242,208,143,0.35)',
+      'border-radius:10px',
+      'background:rgba(20,14,12,0.72)',
+      'color:inherit',
+      'font-size:12px',
+      'line-height:1.35',
+    ].join(';');
+
+    const layers = overlay.getLayers();
+    panel.innerHTML = '';
+
+    const title = document.createElement('div');
+    title.textContent = 'Candlelight Layers';
+    title.style.cssText = 'font-weight:800;margin-bottom:6px;color:var(--accent-2,#f2d08f);';
+    panel.appendChild(title);
+
+    if (!layers.length) {
+      const empty = document.createElement('div');
+      empty.textContent = 'No candlelight layers configured.';
+      empty.style.opacity = '0.72';
+      panel.appendChild(empty);
+    }
+
+    for (const layer of layers) {
+      const label = document.createElement('label');
+      label.style.cssText = 'display:flex;align-items:center;gap:7px;margin:5px 0;min-height:28px;';
+
+      const checkbox = document.createElement('input');
+      checkbox.type = 'checkbox';
+      checkbox.checked = layer.enabled !== false;
+      checkbox.dataset.candlelightLayerId = layer.id;
+      checkbox.addEventListener('change', () => {
+        overlay.setLayerEnabled(layer.id, checkbox.checked);
+        writeLayerEnabledToConfig(layer.id, checkbox.checked);
+        console.log(`[CandleLightOverlay2D] ${layer.id} enabled=${checkbox.checked}`);
+      });
+
+      const text = document.createElement('span');
+      text.textContent = layer.id;
+      text.style.cssText = 'overflow:hidden;text-overflow:ellipsis;white-space:nowrap;';
+
+      label.appendChild(checkbox);
+      label.appendChild(text);
+      panel.appendChild(label);
+    }
+
+    const hint = document.createElement('div');
+    hint.textContent = 'These booleans update SCRATCHBONES_CONFIG.game.layout.lighting.candlelight.layers at runtime.';
+    hint.style.cssText = 'margin-top:6px;opacity:0.68;font-size:11px;';
+    panel.appendChild(hint);
+
+    if (panel.parentNode !== host) host.appendChild(panel);
+  };
+
+  observer = new MutationObserver(scheduleRefresh);
+  observer.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['open', 'style', 'class', 'hidden'] });
+
+  window.addEventListener('resize', scheduleRefresh, { passive: true });
+  setTimeout(scheduleRefresh, 0);
+  setTimeout(scheduleRefresh, 500);
+  setTimeout(scheduleRefresh, 1500);
+
+  return {
+    refresh,
+    destroy() {
+      destroyed = true;
+      observer?.disconnect();
+      window.removeEventListener('resize', scheduleRefresh);
+      document.getElementById(VARS_PANEL_ID)?.remove();
+    },
+  };
+}
+
 export function initCandleLightOverlay(options = {}) {
   if (typeof window !== 'undefined' && window.__candleLightOverlay) {
+    window.__candleLightOverlay.installVarsBridge?.();
     return window.__candleLightOverlay;
   }
 
@@ -557,9 +682,13 @@ export function initCandleLightOverlay(options = {}) {
       setLayerEnabled: (idOrIndex, enabled) => overlay.setLayerEnabled(idOrIndex, enabled),
       toggleLayer: (idOrIndex) => overlay.toggleLayer(idOrIndex),
       setLayerPositionNorm: (idOrIndex, x, y) => overlay.setLayerPositionNorm(idOrIndex, x, y),
+      refreshVarsPanel: () => overlay.refreshVarsPanel(),
+      installVarsBridge: () => overlay.installVarsBridge(),
     };
+    overlay.installVarsBridge();
     console.log('[CandleLightOverlay2D] Initialized on #gameStage');
     console.log('[CandleLightOverlay2D] Debug helpers available at window.__candleLightOverlayDebug');
+    console.log('[CandleLightOverlay2D] Map -> Vars layer bridge installed');
     return overlay;
   } catch (err) {
     console.error('[CandleLightOverlay2D] Failed to initialize:', err);
