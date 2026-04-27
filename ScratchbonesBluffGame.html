@@ -7080,31 +7080,34 @@
       return cachedOccluders;
     }
 
-    // Light zones: clip to every <img> visible inside #app.
-    // CSS-rendered panels (seats, spotlight, topbar) have no <img>, so they
-    // are immune without any explicit exclusion list or layer-order dependency.
-    let lastZoneMs = 0, cachedZones = [];
-    function maybeLightZones(app) {
+    // Backlit UI panels: these elements get their own element-shaped glow source
+    // so they read as self-illuminated objects inside the full-app vignette.
+    const BACKLIT_SELECTORS = ['#aiSidebar', '.humanSeatZone', '.turnSpotlight'];
+    let lastBacklitMs = 0, cachedBacklit = [];
+    function maybeGatherBacklit(app) {
       const now = performance.now();
-      if (now - lastZoneMs < 100) return;
-      lastZoneMs = now;
+      if (now - lastBacklitMs < 100) return;
+      lastBacklitMs = now;
       const ar = app.getBoundingClientRect();
-      cachedZones = [];
-      app.querySelectorAll('img').forEach(img => {
-        if (!img.complete || !img.naturalWidth) return;
-        const r = img.getBoundingClientRect();
-        if (r.width < 2 || r.height < 2) return;
-        cachedZones.push({ x: r.left - ar.left, y: r.top - ar.top, w: r.width, h: r.height });
-      });
+      cachedBacklit = [];
+      for (const sel of BACKLIT_SELECTORS) {
+        const el = app.querySelector(sel);
+        if (!el) continue;
+        const r = el.getBoundingClientRect();
+        if (r.width > 0 && r.height > 0)
+          cachedBacklit.push({ x: r.left - ar.left, y: r.top - ar.top, w: r.width, h: r.height });
+      }
     }
 
-    function withClip(ctx, fn) {
-      if (!cachedZones.length) { fn(); return; }
+    // Draw a box-shaped backlight: the element rect IS the bright core,
+    // with a low-radius glow spilling outward from its edges via shadowBlur.
+    function drawBacklitPanel(ctx, x, y, bw, bh, alpha) {
+      const glowR = clamp(Math.min(bw, bh) * 0.18, 10, 26);
       ctx.save();
-      ctx.beginPath();
-      for (const z of cachedZones) ctx.rect(z.x, z.y, z.w, z.h);
-      ctx.clip();
-      fn();
+      ctx.shadowColor = `rgba(255, 228, 185, ${alpha * 0.88})`;
+      ctx.shadowBlur  = glowR;
+      ctx.fillStyle   = `rgba(255, 228, 185, ${alpha})`;
+      ctx.fillRect(x, y, bw, bh);
       ctx.restore();
     }
 
@@ -7239,18 +7242,16 @@
       const pulse  = clamp(0.86 + (flick - 1) * 0.8, 0.68, 1.18);
       const alpha  = clamp(0.5 * INTENSITY * pulse, 0.08, 1.25);
 
-      // Refresh light zone clip rects (hand panel + claim cluster)
-      maybeLightZones(appRef);
+      // Gather backlit panel rects (~10 fps)
+      maybeGatherBacklit(appRef);
 
       // ── Shadow layer ────────────────────────────────────────────────────────
       const occluders = maybeGather(appRef);
       drawOccluderShadows(lx, ly, INTENSITY * pulse, occluders);
       shadowCtx.clearRect(0, 0, w, h);
-      withClip(shadowCtx, () => {
-        shadowCtx.filter = 'blur(3px)';
-        shadowCtx.drawImage(workShadow, 0, 0);
-        shadowCtx.filter = 'none';
-      });
+      shadowCtx.filter = 'blur(3px)';
+      shadowCtx.drawImage(workShadow, 0, 0);
+      shadowCtx.filter = 'none';
 
       // ── Darkness layer ─────────────────────────────────────────────────────
       wdCtx.clearRect(0, 0, w, h);
@@ -7263,7 +7264,7 @@
       wdCtx.fillStyle = dg;
       wdCtx.fillRect(0, 0, w, h);
       darkCtx.clearRect(0, 0, w, h);
-      withClip(darkCtx, () => { darkCtx.drawImage(workDark, 0, 0); });
+      darkCtx.drawImage(workDark, 0, 0);
 
       // ── Glow layer ─────────────────────────────────────────────────────────
       wgCtx.clearRect(0, 0, w, h);
@@ -7312,8 +7313,15 @@
         wgCtx.stroke();
       }
 
+      // Backlit panels — element-shaped source, glow spills from box edges
+      wgCtx.globalCompositeOperation = 'source-over';
+      const backlitAlpha = 0.16 * Math.min(pulse, 1.05);
+      for (const b of cachedBacklit) {
+        drawBacklitPanel(wgCtx, b.x, b.y, b.w, b.h, backlitAlpha);
+      }
+
       glowCtx.clearRect(0, 0, w, h);
-      withClip(glowCtx, () => { glowCtx.drawImage(workGlow, 0, 0); });
+      glowCtx.drawImage(workGlow, 0, 0);
 
       // ── Lerp clone lighting ─────────────────────────────────────────────────
       // Clones on document.body get a CSS filter that approximates their position
