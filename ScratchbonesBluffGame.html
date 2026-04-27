@@ -2431,35 +2431,7 @@
               contactAlpha: rawGameConfig.layout?.lighting?.cardShadow?.contactAlpha ?? 0.2,
             },
             candlelight: {
-              targets: {
-                backlit: {
-                  container: rawGameConfig.layout?.lighting?.candlelight?.targets?.backlit?.container ?? ['#aiSidebar', '.humanSeatZone', '.turnSpotlight'],
-                  avatar: rawGameConfig.layout?.lighting?.candlelight?.targets?.backlit?.avatar ?? ['.seatAvatarBox', '.turnSpotlightAvatar', '.cin-avatar'],
-                  text: rawGameConfig.layout?.lighting?.candlelight?.targets?.backlit?.text ?? ['.seatName', '.seatMeta', '.seatStatus', '.turnSpotlightNameBar', '.cin-name'],
-                },
-                immuneCapable: {
-                  container: rawGameConfig.layout?.lighting?.candlelight?.targets?.immuneCapable?.container ?? ['#aiSidebar', '.humanSeatZone', '.turnSpotlight'],
-                  avatar: rawGameConfig.layout?.lighting?.candlelight?.targets?.immuneCapable?.avatar ?? ['.seatAvatarBox', '.turnSpotlightAvatar', '.cin-avatar'],
-                  text: rawGameConfig.layout?.lighting?.candlelight?.targets?.immuneCapable?.text ?? ['.seatName', '.seatMeta', '.seatStatus', '.turnSpotlightNameBar', '.cin-name'],
-                },
-              },
-              projectionRoles: rawGameConfig.layout?.lighting?.candlelight?.projectionRoles ?? {
-                'sidebar': {
-                  container: ['#aiSidebar'],
-                  avatar: ['#aiSidebar .seatAvatarBox'],
-                  text: ['#aiSidebar .seatName', '#aiSidebar .seatMeta', '#aiSidebar .seatStatus'],
-                },
-                'human-seat-zone': {
-                  container: ['.humanSeatZone'],
-                  avatar: ['.humanSeatZone .seatAvatarBox'],
-                  text: ['.humanSeatZone .seatName', '.humanSeatZone .seatMeta', '.humanSeatZone .seatStatus'],
-                },
-                'turn-spotlight': {
-                  container: ['.turnSpotlight'],
-                  avatar: ['.turnSpotlightAvatar'],
-                  text: ['.turnSpotlightNameBar', '.cin-name'],
-                },
-              },
+              ...(rawGameConfig.layout?.lighting?.candlelight || {}),
             },
           },
           fitter: rawGameConfig.layout?.fitter ?? null,
@@ -7124,11 +7096,73 @@
     // ── Backlit UI panels ─────────────────────────────────────────────────────
     // Each panel gets its own element-shaped light source: the box IS the core,
     // glow spills from the edges via blur-blit (no hard edge, low desaturation).
-    const CANDLELIGHT_ROLE_KEYS = ['container', 'avatar', 'text'];
+    const CANDLELIGHT_ROLE_KEYS = ['container', 'avatar', 'text', 'sub'];
     const candlelightConfig = SCRATCHBONES_GAME.layout?.lighting?.candlelight || {};
     const candlelightMaskingConfig = candlelightConfig.masking || {};
-    const candlelightTargets = candlelightConfig.targets || {};
-    const candlelightProjectionRoles = candlelightConfig.projectionRoles || {};
+    const CANDLELIGHT_FALLBACKS = {
+      backlitAlphaDefault: 0.14,
+      backlitBlurDefault: 0,
+      selectorGroups: {
+        backlit: {
+          container: ['#aiSidebar', '.humanSeatZone', '.turnSpotlight'],
+          avatar: ['.seatAvatarBox', '.turnSpotlightAvatar', '.cin-avatar'],
+          text: ['.seatName', '.seatMeta', '.seatStatus', '.turnSpotlightNameBar', '.cin-name'],
+          sub: ['[data-stake-left-contribution-anchor]', '[data-stake-right-contribution-anchor]', '[data-stake-betting-choice-anchor]', '.stakeTierBtnRow'],
+        },
+        immuneCapable: {
+          container: ['#aiSidebar', '.humanSeatZone', '.turnSpotlight'],
+          avatar: ['.seatAvatarBox', '.turnSpotlightAvatar', '.cin-avatar'],
+          text: ['.seatName', '.seatMeta', '.seatStatus', '.turnSpotlightNameBar', '.cin-name'],
+          sub: ['[data-stake-left-contribution-anchor]', '[data-stake-right-contribution-anchor]', '[data-stake-betting-choice-anchor]', '.stakeTierBtnRow'],
+        },
+      },
+      projectionMappings: {
+        'sidebar': {
+          container: ['#aiSidebar'],
+          avatar: ['#aiSidebar .seatAvatarBox'],
+          text: ['#aiSidebar .seatName', '#aiSidebar .seatMeta', '#aiSidebar .seatStatus'],
+        },
+        'human-seat-zone': {
+          container: ['.humanSeatZone'],
+          avatar: ['.humanSeatZone .seatAvatarBox'],
+          text: ['.humanSeatZone .seatName', '.humanSeatZone .seatMeta', '.humanSeatZone .seatStatus'],
+        },
+        'turn-spotlight': {
+          container: ['.turnSpotlight'],
+          avatar: ['.turnSpotlightAvatar'],
+          text: ['.turnSpotlightNameBar', '.cin-name'],
+        },
+        'betting-left-contribution-anchor': { sub: ['[data-stake-left-contribution-anchor]'] },
+        'betting-right-contribution-anchor': { sub: ['[data-stake-right-contribution-anchor]'] },
+        'betting-choice-anchor': { sub: ['[data-stake-betting-choice-anchor]'] },
+        'betting-tier-buttons': { sub: ['.stakeTierBtnRow'] },
+        'avatar-*': { sub: ['[data-proj-id="{projId}"]'] },
+      },
+      selectorDefaults: {},
+    };
+    const candlelightTargets = candlelightConfig.selectorGroups || candlelightConfig.targets || {};
+    const candlelightProjectionRoles = candlelightConfig.projectionMappings || candlelightConfig.projectionRoles || {};
+    const candlelightSelectorDefaults = candlelightConfig.selectorDefaults && typeof candlelightConfig.selectorDefaults === 'object'
+      ? candlelightConfig.selectorDefaults
+      : CANDLELIGHT_FALLBACKS.selectorDefaults;
+    const candlelightFallbackNotices = new Set();
+    function warnCandlelightFallbackOnce(key, fallbackValue) {
+      if (candlelightFallbackNotices.has(key)) return;
+      candlelightFallbackNotices.add(key);
+      console.warn(`[CandleLight] Missing config "${key}" in docs/config/scratchbones-config.js. Using fallback.`, fallbackValue);
+    }
+    if (!Number.isFinite(Number(candlelightConfig.backlitAlphaDefault))) {
+      warnCandlelightFallbackOnce('layout.lighting.candlelight.backlitAlphaDefault', CANDLELIGHT_FALLBACKS.backlitAlphaDefault);
+    }
+    if (!Number.isFinite(Number(candlelightConfig.backlitBlurDefault))) {
+      warnCandlelightFallbackOnce('layout.lighting.candlelight.backlitBlurDefault', CANDLELIGHT_FALLBACKS.backlitBlurDefault);
+    }
+    if (!candlelightConfig.selectorGroups && !candlelightConfig.targets) {
+      warnCandlelightFallbackOnce('layout.lighting.candlelight.selectorGroups', CANDLELIGHT_FALLBACKS.selectorGroups);
+    }
+    if (!candlelightConfig.projectionMappings && !candlelightConfig.projectionRoles) {
+      warnCandlelightFallbackOnce('layout.lighting.candlelight.projectionMappings', CANDLELIGHT_FALLBACKS.projectionMappings);
+    }
     const LEGACY_PROJ_ID_TO_BACKLIT = {
       'sidebar': '#aiSidebar',
       'human-seat-zone': '.humanSeatZone',
@@ -7147,20 +7181,37 @@
     function uniqSelectors(selectors) {
       return Array.from(new Set(normalizeSelectorArray(selectors)));
     }
+    function matchesProjPattern(pattern, projId) {
+      if (typeof pattern !== 'string' || typeof projId !== 'string') return false;
+      return pattern.endsWith('*') ? projId.startsWith(pattern.slice(0, -1)) : pattern === projId;
+    }
+    function applyProjectionSelectorTemplate(selector, projId) {
+      return String(selector || '').replaceAll('{projId}', projId || '');
+    }
     function getProjectionRoleSelectors(projId, role = 'container') {
-      const byRole = candlelightProjectionRoles[projId] || {};
-      const roleSelectors = normalizeSelectorArray(byRole[role]);
-      if (roleSelectors.length) return roleSelectors;
+      const roleSelectors = [];
+      for (const [pattern, byRole] of Object.entries(candlelightProjectionRoles || {})) {
+        if (!matchesProjPattern(pattern, projId)) continue;
+        normalizeSelectorArray(byRole?.[role]).forEach(sel => {
+          roleSelectors.push(applyProjectionSelectorTemplate(sel, projId));
+        });
+      }
+      const deduped = uniqSelectors(roleSelectors);
+      if (deduped.length) return deduped;
       if (role !== 'container') return [];
       const legacySelector = LEGACY_PROJ_ID_TO_BACKLIT[projId];
       return legacySelector ? [legacySelector] : [];
     }
+    const selectorGroups = {
+      backlit: candlelightTargets.backlit || CANDLELIGHT_FALLBACKS.selectorGroups.backlit,
+      immuneCapable: candlelightTargets.immuneCapable || CANDLELIGHT_FALLBACKS.selectorGroups.immuneCapable,
+    };
     const BACKLIT_SELECTORS = uniqSelectors([
-      ...flattenTargetSelectors(candlelightTargets.backlit),
+      ...flattenTargetSelectors(selectorGroups.backlit),
       ...Object.values(LEGACY_PROJ_ID_TO_BACKLIT),
     ]);
     const IMMUNE_CAPABLE_SELECTORS = uniqSelectors([
-      ...flattenTargetSelectors(candlelightTargets.immuneCapable),
+      ...flattenTargetSelectors(selectorGroups.immuneCapable),
       ...BACKLIT_SELECTORS,
     ]);
     const BACKLIT_SELECTOR_SET = new Set(BACKLIT_SELECTORS);
@@ -7174,8 +7225,8 @@
         });
       });
     }
-    registerSelectorRoles(candlelightTargets.backlit);
-    registerSelectorRoles(candlelightTargets.immuneCapable);
+    registerSelectorRoles(selectorGroups.backlit);
+    registerSelectorRoles(selectorGroups.immuneCapable);
     BACKLIT_SELECTORS.forEach(sel => {
       if (!CANDLE_SELECTOR_ROLES.has(sel)) CANDLE_SELECTOR_ROLES.set(sel, 'container');
     });
@@ -7183,11 +7234,24 @@
       Object.keys(LEGACY_PROJ_ID_TO_BACKLIT).map(projId => [projId, getProjectionRoleSelectors(projId, 'container')[0] || LEGACY_PROJ_ID_TO_BACKLIT[projId]])
     );
     // Mutable runtime parameters (exposed on window.__candleLight for the UI)
-    let BACKLIT_ALPHA = 0.14;   // overall glow opacity (screen blend)
-    let BACKLIT_BLUR  = 0;      // px; 0 = auto (35% of element min-dimension)
+    let BACKLIT_ALPHA = clamp(Number(candlelightConfig.backlitAlphaDefault), 0, 1);
+    if (!Number.isFinite(BACKLIT_ALPHA)) BACKLIT_ALPHA = CANDLELIGHT_FALLBACKS.backlitAlphaDefault;
+    let BACKLIT_BLUR = Math.max(0, Number(candlelightConfig.backlitBlurDefault));
+    if (!Number.isFinite(BACKLIT_BLUR)) BACKLIT_BLUR = CANDLELIGHT_FALLBACKS.backlitBlurDefault;
     // Per-selector state
-    const TRACKED_CANDLE_SELECTORS = uniqSelectors([...BACKLIT_SELECTORS, ...IMMUNE_CAPABLE_SELECTORS]);
-    const backlitState = new Map(TRACKED_CANDLE_SELECTORS.map(s => [s, { backlit: true, immune: false }]));
+    const TRACKED_CANDLE_SELECTORS = uniqSelectors([
+      ...BACKLIT_SELECTORS,
+      ...IMMUNE_CAPABLE_SELECTORS,
+      ...Object.keys(candlelightSelectorDefaults),
+      ...Object.values(candlelightProjectionRoles).flatMap(entry => flattenTargetSelectors(entry)),
+    ]);
+    const backlitState = new Map(TRACKED_CANDLE_SELECTORS.map(s => {
+      const cfg = candlelightSelectorDefaults[s] || {};
+      return [s, {
+        backlit: cfg.backlit !== false,
+        immune: cfg.immune === true,
+      }];
+    }));
     const IMMUNE_GATHER_CADENCE_MS = Math.max(16, Number(candlelightMaskingConfig.gatherCadenceMs) || 100);
     const IMMUNE_TEXT_MASK_PADDING_PX = Math.max(0, Number(candlelightMaskingConfig.textMaskPaddingPx) || 1);
     let DEBUG_IMMUNE_MASKS = Boolean(candlelightMaskingConfig.debugImmuneMasks);
@@ -7694,6 +7758,14 @@
       set backlitAlpha(v)  { BACKLIT_ALPHA = clamp(Number(v) || 0, 0, 1); },
       get backlitBlur()    { return BACKLIT_BLUR; },
       set backlitBlur(v)   { BACKLIT_BLUR = Math.max(0, Number(v) || 0); },
+      get backlitAlphaDefault() {
+        const value = Number(candlelightConfig.backlitAlphaDefault);
+        return Number.isFinite(value) ? clamp(value, 0, 1) : CANDLELIGHT_FALLBACKS.backlitAlphaDefault;
+      },
+      get backlitBlurDefault() {
+        const value = Number(candlelightConfig.backlitBlurDefault);
+        return Number.isFinite(value) ? Math.max(0, value) : CANDLELIGHT_FALLBACKS.backlitBlurDefault;
+      },
       get debugImmuneMasks()  { return DEBUG_IMMUNE_MASKS; },
       set debugImmuneMasks(v) { DEBUG_IMMUNE_MASKS = Boolean(v); },
       resolveSelectors(targetOrProjId, role) { return getCandleSelectors(targetOrProjId, role); },
@@ -7704,7 +7776,11 @@
       },
       setBacklit(targetOrProjId, roleOrOn, maybeOn) { setCandleState(targetOrProjId, roleOrOn, maybeOn, 'backlit'); },
       setImmune(targetOrProjId, roleOrOn, maybeOn)  { setCandleState(targetOrProjId, roleOrOn, maybeOn, 'immune'); },
+      setProjectionImmune(projId, on, role = 'sub') { setCandleState({ projId, role }, Boolean(on), undefined, 'immune'); },
       selectors:           BACKLIT_SELECTORS,
+      trackedSelectors:    TRACKED_CANDLE_SELECTORS,
+      selectorGroups:      selectorGroups,
+      selectorDefaults:    candlelightSelectorDefaults,
       projIdMap:           PROJ_ID_TO_BACKLIT,
       projectionRoles:     candlelightProjectionRoles,
     };
@@ -7719,7 +7795,18 @@
         const txt = panelTitle.textContent || '';
         const sep = txt.indexOf(' · ');
         const projId = sep >= 0 ? txt.slice(sep + 3).trim() : null;
-        return projId ? window.__candleLight.projIdMap[projId] || null : null;
+        if (!projId) return null;
+        const selectedSourceEl = document.querySelector(`[data-proj-id="${projId}"]`);
+        if (selectedSourceEl) {
+          for (const role of CANDLELIGHT_ROLE_KEYS) {
+            const roleSelectors = getProjectionRoleSelectors(projId, role);
+            for (const selector of roleSelectors) {
+              if (selectedSourceEl.matches(selector) || selectedSourceEl.closest(selector)) return selector;
+            }
+            if (role === 'sub' && roleSelectors.length) return roleSelectors[0];
+          }
+        }
+        return window.__candleLight.projIdMap[projId] || null;
       }
 
       function buildSection() {
