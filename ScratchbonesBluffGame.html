@@ -7080,29 +7080,32 @@
       return cachedOccluders;
     }
 
-    // Light zones: lighting is clipped to .handWrap and .claimCluster only
-    let lastZoneMs = 0, cachedZones = [];
+    // Punch-outs: lighting covers all of #app; excluded rects are cut out with evenodd.
+    // .claimCluster is excluded while the challenge red background is active.
+    let lastZoneMs = 0, cachedPunchOuts = [];
     function maybeLightZones(app) {
       const now = performance.now();
       if (now - lastZoneMs < 100) return;
       lastZoneMs = now;
-      const ar = app.getBoundingClientRect();
-      cachedZones = [];
-      for (const sel of ['.handWrap', '.claimCluster']) {
-        const el = app.querySelector(sel);
-        if (!el) continue;
-        const r = el.getBoundingClientRect();
-        if (r.width < 1 || r.height < 1) continue;
-        cachedZones.push({ x: r.left - ar.left, y: r.top - ar.top, w: r.width, h: r.height });
+      cachedPunchOuts = [];
+      if (app.classList.contains('challenge-visuals-active')) {
+        const ar = app.getBoundingClientRect();
+        const cc = app.querySelector('.claimCluster');
+        if (cc) {
+          const r = cc.getBoundingClientRect();
+          if (r.width > 0 && r.height > 0)
+            cachedPunchOuts.push({ x: r.left - ar.left, y: r.top - ar.top, w: r.width, h: r.height });
+        }
       }
     }
 
     function withClip(ctx, fn) {
-      if (!cachedZones.length) { fn(); return; }
+      if (!cachedPunchOuts.length) { fn(); return; }
       ctx.save();
       ctx.beginPath();
-      for (const z of cachedZones) ctx.rect(z.x, z.y, z.w, z.h);
-      ctx.clip();
+      ctx.rect(0, 0, w, h);
+      for (const p of cachedPunchOuts) ctx.rect(p.x, p.y, p.w, p.h);
+      ctx.clip('evenodd');
       fn();
       ctx.restore();
     }
