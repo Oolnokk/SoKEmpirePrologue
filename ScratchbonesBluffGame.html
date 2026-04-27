@@ -2121,6 +2121,23 @@
     body.proj-mapping .card {
       pointer-events: none !important;
     }
+    /* ── Candlelight overlay canvases ─────────────────────────────────────── */
+    /* Injected into #app via JS; inline styles set position/z-index but these
+       rules ensure mix-blend-mode is applied even before paint. */
+    #candleShadowCanvas,
+    #candleDarknessCanvas,
+    #candleGlowCanvas {
+      position: absolute !important;
+      inset: 0;
+      width: 100% !important;
+      height: 100% !important;
+      pointer-events: none !important;
+      z-index: 2 !important;
+      border-radius: inherit;
+    }
+    #candleShadowCanvas   { mix-blend-mode: multiply; }
+    #candleDarknessCanvas { mix-blend-mode: multiply; }
+    #candleGlowCanvas     { mix-blend-mode: screen; }
   </style>
 </head>
 <body>
@@ -5355,6 +5372,7 @@
                 const dy = avatarCy - cardCy;
                 const clone = document.createElement('img');
                 clone.src = img.src;
+                clone.dataset.candleLerpClone = '1';
                 clone.style.cssText = [
                   'position:fixed',
                   `left:${newRect.left}px`, `top:${newRect.top}px`,
@@ -5413,6 +5431,7 @@
             if (Math.abs(dx) < 2 && Math.abs(dy) < 2 && Math.abs(scaleX - 1) < 0.05) return;
             const clone = document.createElement('img');
             clone.src = snapshot.src;
+            clone.dataset.candleLerpClone = '1';
             clone.style.cssText = [
               'position:fixed',
               `left:${newRect.left}px`, `top:${newRect.top}px`,
@@ -6956,6 +6975,507 @@
     window.addEventListener('pointerdown', () => SCRATCHBONES_AUDIO.startPlaylist(), { once: true, passive: true });
     window.addEventListener('keydown', () => SCRATCHBONES_AUDIO.startPlaylist(), { once: true, passive: true });
     startGame();
+  </script>
+
+  <!-- ── Candlelight overlay ─────────────────────────────────────────────────
+       Three canvas layers inside #app that survive innerHTML replacements via a
+       MutationObserver.  They blend directly with cards, coins, and the tabletop
+       PNG without touching game logic.
+
+       Shadow canvas  (multiply) – card/coin PNGs cast shaped shadows from their
+                                   actual <img> elements; height 36 for cards, 11
+                                   for coins.
+       Darkness canvas (multiply) – warm-amber-to-black radial vignette; gives
+                                    white card/coin surfaces depth.
+       Glow canvas    (screen)   – animated amber ellipse + specular streaks on
+                                   dark surfaces.
+
+       Positions and rendering settings come from the exported tablelight2.json:
+         light  x: 61 px  →  61 / 1920  ≈ 3.2 % of #app width
+                y: 360 px →  360 / 1080  = 33.3 % of #app height
+         intensity  : 0.77   radius (ref) : 1200 px @ 1080 px height
+         speed      : 4.17   turbulence   : 1.0
+  ──────────────────────────────────────────────────────────────────────────── -->
+  <script>
+  (function initCandleLight() {
+    const APP_REF_W = 1920, APP_REF_H = 1080;
+
+    // Light position normalised from tablelight2.json (x:61, y:360) @ 1920×1080
+    const LIGHT_NORM_X = 61  / APP_REF_W;   // ≈ 0.032
+    const LIGHT_NORM_Y = 360 / APP_REF_H;   // ≈ 0.333
+
+    // Controls from tablelight2.json
+    const INTENSITY  = 0.77;
+    const RADIUS_REF = 1200;   // px measured at APP_REF_H
+    const SPEED      = 4.17;
+    const TURBULENCE = 1.0;
+
+    // Shadow height parameters (demo occluder convention)
+    const CARD_SHADOW_HEIGHT = 36;
+    const COIN_SHADOW_HEIGHT = 11;
+
+    // CSS selectors that identify card and coin <img> elements
+    const CARD_IMG_SEL = '.handScroll .cardArt, .tableViewCard img, .seatHandCard img';
+    const COIN_IMG_SEL = '.stakeTierBtn img, .stakeAnchor img';
+
+    function clamp(v, lo, hi) { return v < lo ? lo : v > hi ? hi : v; }
+    function lerp(a, b, t)    { return a + (b - a) * t; }
+
+    function smoothNoise(t) {
+      return (
+        Math.sin(t * 1.7)         * 0.44 +
+        Math.sin(t * 4.9  + 1.8) * 0.31 +
+        Math.sin(t * 9.3  + 4.2) * 0.18 +
+        Math.sin(t * 17.1 + 0.7) * 0.07
+      );
+    }
+
+    let w = 0, h = 0, appRef = null;
+
+    // ── Canvas: occluder shadows (mix-blend-mode: multiply) ──────────────────
+    // Black silhouettes of the actual card/coin PNGs cast away from the light.
+    const shadowCanvas = document.createElement('canvas');
+    shadowCanvas.id = 'candleShadowCanvas';
+    shadowCanvas.setAttribute('aria-hidden', 'true');
+
+    // ── Canvas: darkness / depth vignette (mix-blend-mode: multiply) ────────
+    const darkCanvas = document.createElement('canvas');
+    darkCanvas.id = 'candleDarknessCanvas';
+    darkCanvas.setAttribute('aria-hidden', 'true');
+
+    // ── Canvas: warm glow (mix-blend-mode: screen) ───────────────────────────
+    const glowCanvas = document.createElement('canvas');
+    glowCanvas.id = 'candleGlowCanvas';
+    glowCanvas.setAttribute('aria-hidden', 'true');
+
+    const shadowCtx = shadowCanvas.getContext('2d', { alpha: true });
+    const darkCtx   = darkCanvas.getContext('2d',   { alpha: true });
+    const glowCtx   = glowCanvas.getContext('2d',   { alpha: true });
+
+    // Off-screen work buffers
+    const workDark    = document.createElement('canvas');
+    const workGlow    = document.createElement('canvas');
+    const workShadow  = document.createElement('canvas');
+    const workBacklit = document.createElement('canvas');
+    const wdCtx  = workDark.getContext('2d',    { alpha: true });
+    const wgCtx  = workGlow.getContext('2d',    { alpha: true });
+    const wsCtx  = workShadow.getContext('2d',  { alpha: true });
+    const wbCtx  = workBacklit.getContext('2d', { alpha: true });
+
+    // Silhouette cache: pre-render each unique img.src as a black shape once
+    const silhouetteCache = new Map();
+    function getSilhouette(img) {
+      const key = img.src;
+      if (silhouetteCache.has(key)) return silhouetteCache.get(key);
+      const nw = img.naturalWidth  || 1;
+      const nh = img.naturalHeight || 1;
+      const oc = document.createElement('canvas');
+      oc.width = nw; oc.height = nh;
+      const octx = oc.getContext('2d');
+      octx.drawImage(img, 0, 0);
+      octx.globalCompositeOperation = 'source-atop';
+      octx.fillStyle = '#000';
+      octx.fillRect(0, 0, nw, nh);
+      silhouetteCache.set(key, oc);
+      return oc;
+    }
+
+    // Throttled occluder cache (~12 fps gather, 60 fps render)
+    let lastGatherMs = 0, cachedOccluders = [];
+    function maybeGather(app) {
+      const now = performance.now();
+      if (now - lastGatherMs < 80) return cachedOccluders;
+      lastGatherMs = now;
+      cachedOccluders = gatherOccluders(app);
+      return cachedOccluders;
+    }
+
+    // ── Backlit UI panels ─────────────────────────────────────────────────────
+    // Each panel gets its own element-shaped light source: the box IS the core,
+    // glow spills from the edges via blur-blit (no hard edge, low desaturation).
+    const BACKLIT_SELECTORS   = ['#aiSidebar', '.humanSeatZone', '.turnSpotlight'];
+    const PROJ_ID_TO_BACKLIT  = { 'sidebar': '#aiSidebar', 'human-seat-zone': '.humanSeatZone', 'turn-spotlight': '.turnSpotlight' };
+    // Mutable runtime parameters (exposed on window.__candleLight for the UI)
+    let BACKLIT_ALPHA = 0.14;   // overall glow opacity (screen blend)
+    let BACKLIT_BLUR  = 0;      // px; 0 = auto (35% of element min-dimension)
+    // Per-selector state
+    const backlitState = new Map(BACKLIT_SELECTORS.map(s => [s, { backlit: true, immune: false }]));
+    let lastBacklitMs = 0, cachedBacklit = [], cachedImmune = [];
+    function maybeGatherBacklit(app) {
+      const now = performance.now();
+      if (now - lastBacklitMs < 100) return;
+      lastBacklitMs = now;
+      const ar = app.getBoundingClientRect();
+      cachedBacklit = []; cachedImmune = [];
+      for (const sel of BACKLIT_SELECTORS) {
+        const st = backlitState.get(sel);
+        const el = app.querySelector(sel);
+        if (!el) continue;
+        const r = el.getBoundingClientRect();
+        if (r.width < 1 || r.height < 1) continue;
+        const rect = { x: r.left - ar.left, y: r.top - ar.top, w: r.width, h: r.height };
+        if (st?.immune) { cachedImmune.push(rect); continue; }
+        if (st?.backlit !== false) cachedBacklit.push(rect);
+      }
+    }
+
+    // Punch out immune element rects from any canvas (destination-out erase).
+    function punchOutImmune(ctx) {
+      if (!cachedImmune.length) return;
+      ctx.save();
+      ctx.globalCompositeOperation = 'destination-out';
+      ctx.fillStyle = '#000';
+      for (const r of cachedImmune) ctx.fillRect(r.x, r.y, r.w, r.h);
+      ctx.restore();
+    }
+
+    // Draw all backlit panels: fill to workBacklit, blit with blur → glow canvas.
+    // Blur spreads the fill outward, naturally softening the edges with no hard
+    // boundary. Saturated amber (not near-white) keeps desaturation minimal.
+    function drawBacklitPanels(ctx) {
+      if (!cachedBacklit.length) return;
+      for (const b of cachedBacklit) {
+        wbCtx.clearRect(0, 0, w, h);
+        wbCtx.fillStyle = 'rgba(255, 168, 60, 1)';
+        wbCtx.fillRect(b.x, b.y, b.w, b.h);
+        const blurR = BACKLIT_BLUR > 0 ? BACKLIT_BLUR : Math.min(b.w, b.h) * 0.35;
+        ctx.save();
+        ctx.globalAlpha = BACKLIT_ALPHA;
+        ctx.filter = `blur(${blurR.toFixed(1)}px)`;
+        ctx.drawImage(workBacklit, 0, 0);
+        ctx.filter = 'none';
+        ctx.restore();
+      }
+    }
+
+    function resize(app) {
+      const rect = app.getBoundingClientRect();
+      w = Math.max(1, Math.round(rect.width));
+      h = Math.max(1, Math.round(rect.height));
+      const dpr = Math.min(devicePixelRatio || 1, 2);
+      for (const cv of [shadowCanvas, darkCanvas, glowCanvas]) {
+        cv.width  = w * dpr;
+        cv.height = h * dpr;
+        cv.style.width  = w + 'px';
+        cv.style.height = h + 'px';
+      }
+      shadowCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      darkCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      glowCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      workDark.width    = w; workDark.height    = h;
+      workGlow.width    = w; workGlow.height    = h;
+      workShadow.width  = w; workShadow.height  = h;
+      workBacklit.width = w; workBacklit.height = h;
+    }
+
+    function ensureInApp(app) {
+      // Append in order: shadow first (deepest), then dark, then glow (topmost)
+      if (shadowCanvas.parentNode !== app) app.appendChild(shadowCanvas);
+      if (darkCanvas.parentNode   !== app) app.appendChild(darkCanvas);
+      if (glowCanvas.parentNode   !== app) app.appendChild(glowCanvas);
+    }
+
+    // ── Occluder gathering ────────────────────────────────────────────────────
+    // Query every card/coin <img> that is loaded and visible, return lightweight
+    // objects holding their center position and dimensions relative to #app.
+    function gatherOccluders(app) {
+      const appRect = app.getBoundingClientRect();
+      const occluders = [];
+
+      function addImgs(selector, shadowHeight) {
+        app.querySelectorAll(selector).forEach(img => {
+          if (!img.complete || !img.naturalWidth) return;
+          const r = img.getBoundingClientRect();
+          if (r.width < 2 || r.height < 2) return;
+          occluders.push({
+            img,
+            cx: r.left - appRect.left + r.width  * 0.5,
+            cy: r.top  - appRect.top  + r.height * 0.5,
+            iw: r.width,
+            ih: r.height,
+            sh: shadowHeight
+          });
+        });
+      }
+
+      addImgs(CARD_IMG_SEL, CARD_SHADOW_HEIGHT);
+      addImgs(COIN_IMG_SEL, COIN_SHADOW_HEIGHT);
+
+      // Card lerp clones live on document.body — include their shadows too
+      document.querySelectorAll('[data-candle-lerp-clone]').forEach(el => {
+        if (!el.complete || !el.naturalWidth) return;
+        const r = el.getBoundingClientRect();
+        if (r.width < 2 || r.height < 2) return;
+        occluders.push({
+          img: el,
+          cx:  r.left - appRect.left + r.width  * 0.5,
+          cy:  r.top  - appRect.top  + r.height * 0.5,
+          iw:  r.width,
+          ih:  r.height,
+          sh:  CARD_SHADOW_HEIGHT,
+        });
+      });
+
+      return occluders;
+    }
+
+    // ── Shadow drawing ────────────────────────────────────────────────────────
+    // Steps rendered to workShadow with NO per-step blur; a single blur blit
+    // to shadowCtx replaces the old per-step brightness(0)+blur filter chain.
+    function drawOccluderShadows(lx, ly, intensity, occluders) {
+      wsCtx.clearRect(0, 0, w, h);
+
+      occluders.forEach(occ => {
+        const sil = getSilhouette(occ.img);
+        if (!sil || !sil.width || !sil.height) return;
+
+        const dx   = occ.cx - lx;
+        const dy   = occ.cy - ly;
+        const dist = Math.hypot(dx, dy) || 1;
+        const dirX = dx / dist;
+        const dirY = dy / dist;
+
+        const shadowLength = occ.sh * 1.35;
+        const spread    = 1 + occ.sh * 0.0022;
+        const baseAlpha = clamp(0.34 + intensity * 0.22, 0.15, 0.72);
+        // Scale silhouette canvas coords → screen coords
+        const sx = occ.iw / sil.width;
+        const sy = occ.ih / sil.height;
+
+        for (let step = 1; step <= 4; step++) {
+          const t = step / 4;
+          wsCtx.save();
+          wsCtx.globalAlpha = baseAlpha * Math.pow(1 - t + 0.02, 1.35);
+          wsCtx.translate(
+            occ.cx + dirX * shadowLength * t,
+            occ.cy + dirY * shadowLength * t
+          );
+          wsCtx.scale(
+            (1 + t * (spread - 1) * 0.85) * sx,
+            (1 + t * (spread - 1))        * sy
+          );
+          wsCtx.drawImage(sil, -sil.width * 0.5, -sil.height * 0.5);
+          wsCtx.restore();
+        }
+      });
+
+      // workShadow holds unblurred steps; caller blits with clip + blur
+    }
+
+    function draw(time) {
+      requestAnimationFrame(ms => draw(ms / 1000));
+      if (!w || !h || !appRef) return;
+
+      // Scale radius to match the current #app height vs reference
+      const radius = RADIUS_REF * (h / APP_REF_H);
+
+      // Flicker
+      const noise  = smoothNoise(time * SPEED);
+      const qp     = Math.sin(time * 31.0) * 0.025;
+      const flick  = clamp(1 + noise * 0.16 * TURBULENCE + qp, 0.72, 1.28);
+      const driftX = Math.sin(time * 2.2) * 16 * TURBULENCE + noise * 10 * TURBULENCE;
+      const driftY = Math.cos(time * 2.9) * 10 * TURBULENCE;
+      const lx     = LIGHT_NORM_X * w + driftX;
+      const ly     = LIGHT_NORM_Y * h - 12 + driftY;
+      const pulse  = clamp(0.86 + (flick - 1) * 0.8, 0.68, 1.18);
+      const alpha  = clamp(0.5 * INTENSITY * pulse, 0.08, 1.25);
+
+      // Gather backlit panel rects (~10 fps)
+      maybeGatherBacklit(appRef);
+
+      // ── Shadow layer ────────────────────────────────────────────────────────
+      const occluders = maybeGather(appRef);
+      drawOccluderShadows(lx, ly, INTENSITY * pulse, occluders);
+      shadowCtx.clearRect(0, 0, w, h);
+      shadowCtx.filter = 'blur(3px)';
+      shadowCtx.drawImage(workShadow, 0, 0);
+      shadowCtx.filter = 'none';
+      punchOutImmune(shadowCtx);
+
+      // ── Darkness layer ─────────────────────────────────────────────────────
+      wdCtx.clearRect(0, 0, w, h);
+      const dg = wdCtx.createRadialGradient(lx, ly, 0, lx, ly, radius * 1.45);
+      dg.addColorStop(0,    `rgba(255, 200, 100, ${0.04 * flick})`);
+      dg.addColorStop(0.18, 'rgba(200, 140, 60, 0.18)');
+      dg.addColorStop(0.40, 'rgba(60, 36, 14, 0.54)');
+      dg.addColorStop(0.68, 'rgba(16, 10, 4, 0.76)');
+      dg.addColorStop(1,    'rgba(6, 3, 1, 0.88)');
+      wdCtx.fillStyle = dg;
+      wdCtx.fillRect(0, 0, w, h);
+      darkCtx.clearRect(0, 0, w, h);
+      darkCtx.drawImage(workDark, 0, 0);
+      punchOutImmune(darkCtx);
+
+      // ── Glow layer ─────────────────────────────────────────────────────────
+      wgCtx.clearRect(0, 0, w, h);
+      wgCtx.globalCompositeOperation = 'source-over';
+
+      wgCtx.save();
+      wgCtx.translate(lx, ly + radius * 0.12);
+      wgCtx.scale(1.12, 0.72);
+      const gg = wgCtx.createRadialGradient(0, 0, 0, 0, 0, radius);
+      gg.addColorStop(0,    `rgba(255, 223, 136, ${alpha})`);
+      gg.addColorStop(0.14, `rgba(255, 223, 136, ${alpha})`);
+      gg.addColorStop(0.55, `rgba(255, 166, 54, ${alpha * 0.5})`);
+      gg.addColorStop(1,    'rgba(255, 120, 16, 0)');
+      wgCtx.fillStyle = gg;
+      wgCtx.beginPath();
+      wgCtx.arc(0, 0, radius, 0, Math.PI * 2);
+      wgCtx.fill();
+      wgCtx.restore();
+
+      const cg = wgCtx.createRadialGradient(lx, ly - 18, 0, lx, ly - 18, radius * 0.07);
+      cg.addColorStop(0, `rgba(255, 248, 200, ${alpha * 0.9})`);
+      cg.addColorStop(1, 'rgba(255, 145, 32, 0)');
+      wgCtx.fillStyle = cg;
+      wgCtx.beginPath();
+      wgCtx.arc(lx, ly - 18, radius * 0.07, 0, Math.PI * 2);
+      wgCtx.fill();
+
+      wgCtx.globalCompositeOperation = 'screen';
+      wgCtx.lineWidth = 1;
+      for (let i = 0; i < 14; i++) {
+        const ang    = (i / 14) * Math.PI * 2 + Math.sin(time + i) * 0.08;
+        const len    = radius * (0.42 + (i % 4) * 0.055);
+        const start  = 34 + (i % 3) * 10;
+        const wobble = Math.sin(time * (2.1 + i * 0.13) + i) * 18 * TURBULENCE;
+        const x1 = lx + Math.cos(ang) * start  + wobble;
+        const y1 = ly + Math.sin(ang) * start  * 0.64;
+        const x2 = lx + Math.cos(ang) * len    + wobble * 0.45;
+        const y2 = ly + Math.sin(ang) * len    * 0.64;
+        const sg = wgCtx.createLinearGradient(x1, y1, x2, y2);
+        sg.addColorStop(0, `rgba(255, 221, 140, ${alpha * 0.11})`);
+        sg.addColorStop(1, 'rgba(255, 130, 28, 0)');
+        wgCtx.strokeStyle = sg;
+        wgCtx.beginPath();
+        wgCtx.moveTo(x1, y1);
+        wgCtx.lineTo(x2, y2);
+        wgCtx.stroke();
+      }
+
+      // Backlit panels — element-shaped amber glow, soft blur edges
+      wgCtx.globalCompositeOperation = 'source-over';
+      drawBacklitPanels(wgCtx);
+
+      glowCtx.clearRect(0, 0, w, h);
+      glowCtx.drawImage(workGlow, 0, 0);
+      punchOutImmune(glowCtx);
+
+      // ── Lerp clone lighting ─────────────────────────────────────────────────
+      // Clones on document.body get a CSS filter that approximates their position
+      // in the candlelight (dark + warm near source, dim + cool far from it).
+      const ar = appRef.getBoundingClientRect();
+      document.querySelectorAll('[data-candle-lerp-clone]').forEach(el => {
+        const r  = el.getBoundingClientRect();
+        const cx = r.left + r.width  * 0.5 - ar.left;
+        const cy = r.top  + r.height * 0.5 - ar.top;
+        const falloff = Math.max(0, 1 - Math.hypot(cx - lx, cy - ly) / radius);
+        el.style.filter =
+          `brightness(${(0.28 + falloff * 0.72 * pulse).toFixed(3)})` +
+          ` sepia(${(falloff * 0.5).toFixed(3)})`;
+      });
+    }
+
+    function start() {
+      const app = document.getElementById('app');
+      if (!app) { setTimeout(start, 80); return; }
+      appRef = app;
+
+      resize(app);
+      ensureInApp(app);
+
+      new ResizeObserver(() => resize(app)).observe(app);
+
+      // Re-inject canvases each time app.innerHTML is replaced
+      new MutationObserver(() => ensureInApp(app)).observe(app, { childList: true });
+
+      requestAnimationFrame(ms => draw(ms / 1000));
+    }
+
+    // ── Public API (used by the Vars panel controls) ──────────────────────────
+    window.__candleLight = {
+      get backlitAlpha()   { return BACKLIT_ALPHA; },
+      set backlitAlpha(v)  { BACKLIT_ALPHA = clamp(Number(v) || 0, 0, 1); },
+      get backlitBlur()    { return BACKLIT_BLUR; },
+      set backlitBlur(v)   { BACKLIT_BLUR = Math.max(0, Number(v) || 0); },
+      getState(sel)        { return backlitState.get(sel); },
+      setBacklit(sel, on)  { const s = backlitState.get(sel); if (s) { s.backlit = !!on; lastBacklitMs = 0; } },
+      setImmune(sel, on)   { const s = backlitState.get(sel); if (s) { s.immune = !!on; lastBacklitMs = 0; } },
+      selectors:           BACKLIT_SELECTORS,
+      projIdMap:           PROJ_ID_TO_BACKLIT,
+    };
+
+    // ── Candlelight controls in the Vars panel ────────────────────────────────
+    function initCandleLightControls() {
+      const panelBody = document.getElementById('projVarPanelBody');
+      const panelTitle = document.getElementById('projVarPanelTitle');
+      if (!panelBody || !panelTitle) return;
+
+      function getSelectedSel() {
+        const txt = panelTitle.textContent || '';
+        const sep = txt.indexOf(' · ');
+        const projId = sep >= 0 ? txt.slice(sep + 3).trim() : null;
+        return projId ? window.__candleLight.projIdMap[projId] || null : null;
+      }
+
+      function buildSection() {
+        const sel = getSelectedSel();
+        const st  = sel ? window.__candleLight.getState(sel) : null;
+        const sec = document.createElement('div');
+        sec.className = 'candleLightSection';
+        sec.style.cssText = 'border-top:1px solid rgba(200,170,120,0.22);margin-top:10px;padding-top:8px';
+        sec.innerHTML = `
+          <div class="projVarHint" style="color:#c89952;font-weight:600;margin-bottom:4px">Candlelight</div>
+          <label class="projVarRow"><span class="projVarLabel">backlit-alpha</span>
+            <input class="projVarInput" type="number" data-cl="backlitAlpha" step="0.01" min="0" max="1" value="${window.__candleLight.backlitAlpha.toFixed(2)}">
+            <input class="projVarInput" type="range"  data-cl="backlitAlpha" step="0.01" min="0" max="1" value="${window.__candleLight.backlitAlpha.toFixed(2)}">
+          </label>
+          <label class="projVarRow"><span class="projVarLabel">backlit-blur (0=auto)</span>
+            <input class="projVarInput" type="number" data-cl="backlitBlur" step="1" min="0" max="300" value="${window.__candleLight.backlitBlur}">
+            <input class="projVarInput" type="range"  data-cl="backlitBlur" step="1" min="0" max="300" value="${window.__candleLight.backlitBlur}">
+          </label>
+          ${st ? `<div style="margin-top:6px;font-size:0.82em;color:#cdbb9f;margin-bottom:2px">${sel}</div>
+          <label class="projVarRow" style="gap:8px;align-items:center">
+            <span class="projVarLabel">backlit</span>
+            <input type="checkbox" data-cl="backlit" data-sel="${sel}" ${st.backlit ? 'checked' : ''}>
+          </label>
+          <label class="projVarRow" style="gap:8px;align-items:center">
+            <span class="projVarLabel">immune (fully unaffected)</span>
+            <input type="checkbox" data-cl="immune" data-sel="${sel}" ${st.immune ? 'checked' : ''}>
+          </label>` : ''}
+        `;
+        sec.addEventListener('input', e => {
+          const key = e.target.dataset.cl;
+          const elSel = e.target.dataset.sel;
+          if (!key) return;
+          if (key === 'backlitAlpha') {
+            window.__candleLight.backlitAlpha = e.target.value;
+            sec.querySelectorAll('[data-cl="backlitAlpha"]').forEach(i => { if (i !== e.target) i.value = e.target.value; });
+          } else if (key === 'backlitBlur') {
+            window.__candleLight.backlitBlur = e.target.value;
+            sec.querySelectorAll('[data-cl="backlitBlur"]').forEach(i => { if (i !== e.target) i.value = e.target.value; });
+          } else if (key === 'backlit' && elSel) {
+            window.__candleLight.setBacklit(elSel, e.target.checked);
+          } else if (key === 'immune' && elSel) {
+            window.__candleLight.setImmune(elSel, e.target.checked);
+          }
+        });
+        return sec;
+      }
+
+      new MutationObserver(() => {
+        if (!panelBody.querySelector('.candleLightSection'))
+          panelBody.appendChild(buildSection());
+      }).observe(panelBody, { childList: true });
+    }
+
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', () => { start(); initCandleLightControls(); });
+    } else {
+      start();
+      initCandleLightControls();
+    }
+  })();
   </script>
 </body>
 </html>

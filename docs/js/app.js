@@ -7399,6 +7399,13 @@ function boot(){
     window.GAME.__appInitialized = true;
     console.log('[app] ✅ App initialization complete - now loading map...');
 
+    // Candlelight overlay – isolated dynamic import so a failure can't crash boot
+    import('../lighting/CandleLightOverlay2D.js').then(({ initCandleLightOverlay }) => {
+      initCandleLightOverlay();
+    }).catch((err) => {
+      console.warn('[app] CandleLightOverlay2D failed to load:', err);
+    });
+
     // CRITICAL: Use dynamic import to load map-bootstrap AFTER app is ready
     // Static import causes race condition where both modules load in parallel
     console.log('🟡🟡🟡 [app/boot] 🚀 ABOUT TO IMPORT map-bootstrap.js 🟡🟡🟡');
