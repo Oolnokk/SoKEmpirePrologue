@@ -1024,7 +1024,7 @@ window.SCRATCHBONES_CONFIG = {
         },
         "bgm": {
           "playlist": [
-            "./docs/assets/audio/bgm/tankan_nocturne.m4a"
+            "./docs/assets/audio/bgm/tankan_nocturne.mp3"
           ],
           "challenge": "./docs/assets/audio/scratchbones/bgm/challenge-loop.mp3"
         }
