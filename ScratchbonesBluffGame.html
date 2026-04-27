@@ -7188,6 +7188,35 @@
     function applyProjectionSelectorTemplate(selector, projId) {
       return String(selector || '').replaceAll('{projId}', projId || '');
     }
+    function getKnownProjectionIds() {
+      return Array.from(document.querySelectorAll('[data-proj-id]'))
+        .map(el => el.getAttribute('data-proj-id'))
+        .filter(id => typeof id === 'string' && id.trim());
+    }
+    function expandProjectionMappingSelectors() {
+      const selectors = [];
+      const selectorRoles = new Map();
+      const knownProjIds = getKnownProjectionIds();
+      for (const [pattern, byRole] of Object.entries(candlelightProjectionRoles || {})) {
+        const matchingProjIds = pattern.endsWith('*')
+          ? knownProjIds.filter(projId => matchesProjPattern(pattern, projId))
+          : [pattern];
+        CANDLELIGHT_ROLE_KEYS.forEach(role => {
+          normalizeSelectorArray(byRole?.[role]).forEach(sel => {
+            matchingProjIds.forEach(projId => {
+              const resolved = applyProjectionSelectorTemplate(sel, projId);
+              if (!resolved) return;
+              selectors.push(resolved);
+              if (!selectorRoles.has(resolved)) selectorRoles.set(resolved, role);
+            });
+          });
+        });
+      }
+      return {
+        selectors: uniqSelectors(selectors),
+        selectorRoles,
+      };
+    }
     function getProjectionRoleSelectors(projId, role = 'container') {
       const roleSelectors = [];
       for (const [pattern, byRole] of Object.entries(candlelightProjectionRoles || {})) {
@@ -7227,6 +7256,11 @@
     }
     registerSelectorRoles(selectorGroups.backlit);
     registerSelectorRoles(selectorGroups.immuneCapable);
+    const expandedProjectionMappings = expandProjectionMappingSelectors();
+    expandedProjectionMappings.selectors.forEach(sel => IMMUNE_CAPABLE_SELECTOR_SET.add(sel));
+    expandedProjectionMappings.selectorRoles.forEach((role, selector) => {
+      if (!CANDLE_SELECTOR_ROLES.has(selector)) CANDLE_SELECTOR_ROLES.set(selector, role);
+    });
     BACKLIT_SELECTORS.forEach(sel => {
       if (!CANDLE_SELECTOR_ROLES.has(sel)) CANDLE_SELECTOR_ROLES.set(sel, 'container');
     });
@@ -7243,8 +7277,9 @@
       ...BACKLIT_SELECTORS,
       ...IMMUNE_CAPABLE_SELECTORS,
       ...Object.keys(candlelightSelectorDefaults),
-      ...Object.values(candlelightProjectionRoles).flatMap(entry => flattenTargetSelectors(entry)),
+      ...expandedProjectionMappings.selectors,
     ]);
+    const TRACKED_CANDLE_SELECTOR_SET = new Set(TRACKED_CANDLE_SELECTORS);
     const backlitState = new Map(TRACKED_CANDLE_SELECTORS.map(s => {
       const cfg = candlelightSelectorDefaults[s] || {};
       return [s, {
@@ -7252,6 +7287,16 @@
         immune: cfg.immune === true,
       }];
     }));
+    function trackCandleSelector(selector) {
+      if (!selector || TRACKED_CANDLE_SELECTOR_SET.has(selector)) return;
+      TRACKED_CANDLE_SELECTOR_SET.add(selector);
+      TRACKED_CANDLE_SELECTORS.push(selector);
+      const cfg = candlelightSelectorDefaults[selector] || {};
+      backlitState.set(selector, {
+        backlit: cfg.backlit !== false,
+        immune: cfg.immune === true,
+      });
+    }
     const IMMUNE_GATHER_CADENCE_MS = Math.max(16, Number(candlelightMaskingConfig.gatherCadenceMs) || 100);
     const IMMUNE_TEXT_MASK_PADDING_PX = Math.max(0, Number(candlelightMaskingConfig.textMaskPaddingPx) || 1);
     let DEBUG_IMMUNE_MASKS = Boolean(candlelightMaskingConfig.debugImmuneMasks);
@@ -7386,6 +7431,7 @@
       if (typeof on !== 'boolean') return;
       const selectors = getCandleSelectors(targetOrProjId, role || undefined);
       selectors.forEach(sel => {
+        trackCandleSelector(sel);
         const state = backlitState.get(sel);
         if (!state) return;
         if (field === 'immune' && !IMMUNE_CAPABLE_SELECTOR_SET.has(sel)) return;
