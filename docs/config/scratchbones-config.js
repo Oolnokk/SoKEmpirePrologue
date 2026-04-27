@@ -905,8 +905,6 @@ window.SCRATCHBONES_CONFIG = {
         },
         "bgm": {
           "playlist": [
-            "./docs/assets/audio/scratchbones/bgm/table-loop-01.mp3",
-            "./docs/assets/audio/scratchbones/bgm/table-loop-02.mp3",
             "./docs/assets/audio/bgm/tankan_nocturne.m4a"
           ],
           "challenge": "./docs/assets/audio/scratchbones/bgm/challenge-loop.mp3"
