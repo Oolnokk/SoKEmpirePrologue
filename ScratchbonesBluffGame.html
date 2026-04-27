@@ -5364,6 +5364,7 @@
                 const dy = avatarCy - cardCy;
                 const clone = document.createElement('img');
                 clone.src = img.src;
+                clone.dataset.candleLerpClone = '1';
                 clone.style.cssText = [
                   'position:fixed',
                   `left:${newRect.left}px`, `top:${newRect.top}px`,
@@ -5422,6 +5423,7 @@
             if (Math.abs(dx) < 2 && Math.abs(dy) < 2 && Math.abs(scaleX - 1) < 0.05) return;
             const clone = document.createElement('img');
             clone.src = snapshot.src;
+            clone.dataset.candleLerpClone = '1';
             clone.style.cssText = [
               'position:fixed',
               `left:${newRect.left}px`, `top:${newRect.top}px`,
@@ -7078,6 +7080,33 @@
       return cachedOccluders;
     }
 
+    // Light zones: lighting is clipped to .handWrap and .claimCluster only
+    let lastZoneMs = 0, cachedZones = [];
+    function maybeLightZones(app) {
+      const now = performance.now();
+      if (now - lastZoneMs < 100) return;
+      lastZoneMs = now;
+      const ar = app.getBoundingClientRect();
+      cachedZones = [];
+      for (const sel of ['.handWrap', '.claimCluster']) {
+        const el = app.querySelector(sel);
+        if (!el) continue;
+        const r = el.getBoundingClientRect();
+        if (r.width < 1 || r.height < 1) continue;
+        cachedZones.push({ x: r.left - ar.left, y: r.top - ar.top, w: r.width, h: r.height });
+      }
+    }
+
+    function withClip(ctx, fn) {
+      if (!cachedZones.length) { fn(); return; }
+      ctx.save();
+      ctx.beginPath();
+      for (const z of cachedZones) ctx.rect(z.x, z.y, z.w, z.h);
+      ctx.clip();
+      fn();
+      ctx.restore();
+    }
+
     function resize(app) {
       const rect = app.getBoundingClientRect();
       w = Math.max(1, Math.round(rect.width));
@@ -7129,6 +7158,22 @@
 
       addImgs(CARD_IMG_SEL, CARD_SHADOW_HEIGHT);
       addImgs(COIN_IMG_SEL, COIN_SHADOW_HEIGHT);
+
+      // Card lerp clones live on document.body — include their shadows too
+      document.querySelectorAll('[data-candle-lerp-clone]').forEach(el => {
+        if (!el.complete || !el.naturalWidth) return;
+        const r = el.getBoundingClientRect();
+        if (r.width < 2 || r.height < 2) return;
+        occluders.push({
+          img: el,
+          cx:  r.left - appRect.left + r.width  * 0.5,
+          cy:  r.top  - appRect.top  + r.height * 0.5,
+          iw:  r.width,
+          ih:  r.height,
+          sh:  CARD_SHADOW_HEIGHT,
+        });
+      });
+
       return occluders;
     }
 
@@ -7172,11 +7217,7 @@
         }
       });
 
-      // Single blur pass — far cheaper than per-step filter
-      shadowCtx.clearRect(0, 0, w, h);
-      shadowCtx.filter = 'blur(3px)';
-      shadowCtx.drawImage(workShadow, 0, 0);
-      shadowCtx.filter = 'none';
+      // workShadow holds unblurred steps; caller blits with clip + blur
     }
 
     function draw(time) {
@@ -7197,9 +7238,18 @@
       const pulse  = clamp(0.86 + (flick - 1) * 0.8, 0.68, 1.18);
       const alpha  = clamp(0.5 * INTENSITY * pulse, 0.08, 1.25);
 
+      // Refresh light zone clip rects (hand panel + claim cluster)
+      maybeLightZones(appRef);
+
       // ── Shadow layer ────────────────────────────────────────────────────────
       const occluders = maybeGather(appRef);
       drawOccluderShadows(lx, ly, INTENSITY * pulse, occluders);
+      shadowCtx.clearRect(0, 0, w, h);
+      withClip(shadowCtx, () => {
+        shadowCtx.filter = 'blur(3px)';
+        shadowCtx.drawImage(workShadow, 0, 0);
+        shadowCtx.filter = 'none';
+      });
 
       // ── Darkness layer ─────────────────────────────────────────────────────
       wdCtx.clearRect(0, 0, w, h);
@@ -7212,7 +7262,7 @@
       wdCtx.fillStyle = dg;
       wdCtx.fillRect(0, 0, w, h);
       darkCtx.clearRect(0, 0, w, h);
-      darkCtx.drawImage(workDark, 0, 0);
+      withClip(darkCtx, () => { darkCtx.drawImage(workDark, 0, 0); });
 
       // ── Glow layer ─────────────────────────────────────────────────────────
       wgCtx.clearRect(0, 0, w, h);
@@ -7262,7 +7312,21 @@
       }
 
       glowCtx.clearRect(0, 0, w, h);
-      glowCtx.drawImage(workGlow, 0, 0);
+      withClip(glowCtx, () => { glowCtx.drawImage(workGlow, 0, 0); });
+
+      // ── Lerp clone lighting ─────────────────────────────────────────────────
+      // Clones on document.body get a CSS filter that approximates their position
+      // in the candlelight (dark + warm near source, dim + cool far from it).
+      const ar = appRef.getBoundingClientRect();
+      document.querySelectorAll('[data-candle-lerp-clone]').forEach(el => {
+        const r  = el.getBoundingClientRect();
+        const cx = r.left + r.width  * 0.5 - ar.left;
+        const cy = r.top  + r.height * 0.5 - ar.top;
+        const falloff = Math.max(0, 1 - Math.hypot(cx - lx, cy - ly) / radius);
+        el.style.filter =
+          `brightness(${(0.28 + falloff * 0.72 * pulse).toFixed(3)})` +
+          ` sepia(${(falloff * 0.5).toFixed(3)})`;
+      });
     }
 
     function start() {
