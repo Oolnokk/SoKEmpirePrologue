@@ -390,6 +390,37 @@ window.SCRATCHBONES_CONFIG = {
           "spreadPx": -2,
           "alpha": 0.34,
           "contactAlpha": 0.2
+        },
+        "candlelight": {
+          "targets": {
+            "backlit": {
+              "container": ["#aiSidebar", ".humanSeatZone", ".turnSpotlight"],
+              "avatar": [".seatAvatarBox", ".turnSpotlightAvatar", ".cin-avatar"],
+              "text": [".seatName", ".seatMeta", ".seatStatus", ".turnSpotlightNameBar", ".cin-name"]
+            },
+            "immuneCapable": {
+              "container": ["#aiSidebar", ".humanSeatZone", ".turnSpotlight"],
+              "avatar": [".seatAvatarBox", ".turnSpotlightAvatar", ".cin-avatar"],
+              "text": [".seatName", ".seatMeta", ".seatStatus", ".turnSpotlightNameBar", ".cin-name"]
+            }
+          },
+          "projectionRoles": {
+            "sidebar": {
+              "container": ["#aiSidebar"],
+              "avatar": ["#aiSidebar .seatAvatarBox"],
+              "text": ["#aiSidebar .seatName", "#aiSidebar .seatMeta", "#aiSidebar .seatStatus"]
+            },
+            "human-seat-zone": {
+              "container": [".humanSeatZone"],
+              "avatar": [".humanSeatZone .seatAvatarBox"],
+              "text": [".humanSeatZone .seatName", ".humanSeatZone .seatMeta", ".humanSeatZone .seatStatus"]
+            },
+            "turn-spotlight": {
+              "container": [".turnSpotlight"],
+              "avatar": [".turnSpotlightAvatar"],
+              "text": [".turnSpotlightNameBar", ".cin-name"]
+            }
+          }
         }
       },
       "fitter": {

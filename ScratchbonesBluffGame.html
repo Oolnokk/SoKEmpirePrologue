@@ -2430,6 +2430,37 @@
               alpha: rawGameConfig.layout?.lighting?.cardShadow?.alpha ?? 0.34,
               contactAlpha: rawGameConfig.layout?.lighting?.cardShadow?.contactAlpha ?? 0.2,
             },
+            candlelight: {
+              targets: {
+                backlit: {
+                  container: rawGameConfig.layout?.lighting?.candlelight?.targets?.backlit?.container ?? ['#aiSidebar', '.humanSeatZone', '.turnSpotlight'],
+                  avatar: rawGameConfig.layout?.lighting?.candlelight?.targets?.backlit?.avatar ?? ['.seatAvatarBox', '.turnSpotlightAvatar', '.cin-avatar'],
+                  text: rawGameConfig.layout?.lighting?.candlelight?.targets?.backlit?.text ?? ['.seatName', '.seatMeta', '.seatStatus', '.turnSpotlightNameBar', '.cin-name'],
+                },
+                immuneCapable: {
+                  container: rawGameConfig.layout?.lighting?.candlelight?.targets?.immuneCapable?.container ?? ['#aiSidebar', '.humanSeatZone', '.turnSpotlight'],
+                  avatar: rawGameConfig.layout?.lighting?.candlelight?.targets?.immuneCapable?.avatar ?? ['.seatAvatarBox', '.turnSpotlightAvatar', '.cin-avatar'],
+                  text: rawGameConfig.layout?.lighting?.candlelight?.targets?.immuneCapable?.text ?? ['.seatName', '.seatMeta', '.seatStatus', '.turnSpotlightNameBar', '.cin-name'],
+                },
+              },
+              projectionRoles: rawGameConfig.layout?.lighting?.candlelight?.projectionRoles ?? {
+                'sidebar': {
+                  container: ['#aiSidebar'],
+                  avatar: ['#aiSidebar .seatAvatarBox'],
+                  text: ['#aiSidebar .seatName', '#aiSidebar .seatMeta', '#aiSidebar .seatStatus'],
+                },
+                'human-seat-zone': {
+                  container: ['.humanSeatZone'],
+                  avatar: ['.humanSeatZone .seatAvatarBox'],
+                  text: ['.humanSeatZone .seatName', '.humanSeatZone .seatMeta', '.humanSeatZone .seatStatus'],
+                },
+                'turn-spotlight': {
+                  container: ['.turnSpotlight'],
+                  avatar: ['.turnSpotlightAvatar'],
+                  text: ['.turnSpotlightNameBar', '.cin-name'],
+                },
+              },
+            },
           },
           fitter: rawGameConfig.layout?.fitter ?? null,
           projectionMapping: rawGameConfig.layout?.projectionMapping ?? {},
@@ -7093,29 +7124,103 @@
     // ── Backlit UI panels ─────────────────────────────────────────────────────
     // Each panel gets its own element-shaped light source: the box IS the core,
     // glow spills from the edges via blur-blit (no hard edge, low desaturation).
-    const BACKLIT_SELECTORS   = ['#aiSidebar', '.humanSeatZone', '.turnSpotlight'];
-    const PROJ_ID_TO_BACKLIT  = { 'sidebar': '#aiSidebar', 'human-seat-zone': '.humanSeatZone', 'turn-spotlight': '.turnSpotlight' };
+    const CANDLELIGHT_ROLE_KEYS = ['container', 'avatar', 'text'];
+    const candlelightConfig = SCRATCHBONES_GAME.layout?.lighting?.candlelight || {};
+    const candlelightTargets = candlelightConfig.targets || {};
+    const candlelightProjectionRoles = candlelightConfig.projectionRoles || {};
+    const LEGACY_PROJ_ID_TO_BACKLIT = {
+      'sidebar': '#aiSidebar',
+      'human-seat-zone': '.humanSeatZone',
+      'turn-spotlight': '.turnSpotlight',
+    };
+    function normalizeSelectorArray(value) {
+      if (Array.isArray(value)) return value.filter(v => typeof v === 'string' && v.trim()).map(v => v.trim());
+      if (typeof value === 'string' && value.trim()) return [value.trim()];
+      return [];
+    }
+    function flattenTargetSelectors(targetGroup) {
+      if (!targetGroup || typeof targetGroup !== 'object') return [];
+      if (Array.isArray(targetGroup)) return normalizeSelectorArray(targetGroup);
+      return CANDLELIGHT_ROLE_KEYS.flatMap(role => normalizeSelectorArray(targetGroup[role]));
+    }
+    function uniqSelectors(selectors) {
+      return Array.from(new Set(normalizeSelectorArray(selectors)));
+    }
+    function getProjectionRoleSelectors(projId, role = 'container') {
+      const byRole = candlelightProjectionRoles[projId] || {};
+      const roleSelectors = normalizeSelectorArray(byRole[role]);
+      if (roleSelectors.length) return roleSelectors;
+      if (role !== 'container') return [];
+      const legacySelector = LEGACY_PROJ_ID_TO_BACKLIT[projId];
+      return legacySelector ? [legacySelector] : [];
+    }
+    const BACKLIT_SELECTORS = uniqSelectors([
+      ...flattenTargetSelectors(candlelightTargets.backlit),
+      ...Object.values(LEGACY_PROJ_ID_TO_BACKLIT),
+    ]);
+    const IMMUNE_CAPABLE_SELECTORS = uniqSelectors([
+      ...flattenTargetSelectors(candlelightTargets.immuneCapable),
+      ...BACKLIT_SELECTORS,
+    ]);
+    const BACKLIT_SELECTOR_SET = new Set(BACKLIT_SELECTORS);
+    const IMMUNE_CAPABLE_SELECTOR_SET = new Set(IMMUNE_CAPABLE_SELECTORS);
+    const PROJ_ID_TO_BACKLIT = Object.fromEntries(
+      Object.keys(LEGACY_PROJ_ID_TO_BACKLIT).map(projId => [projId, getProjectionRoleSelectors(projId, 'container')[0] || LEGACY_PROJ_ID_TO_BACKLIT[projId]])
+    );
     // Mutable runtime parameters (exposed on window.__candleLight for the UI)
     let BACKLIT_ALPHA = 0.14;   // overall glow opacity (screen blend)
     let BACKLIT_BLUR  = 0;      // px; 0 = auto (35% of element min-dimension)
     // Per-selector state
-    const backlitState = new Map(BACKLIT_SELECTORS.map(s => [s, { backlit: true, immune: false }]));
+    const TRACKED_CANDLE_SELECTORS = uniqSelectors([...BACKLIT_SELECTORS, ...IMMUNE_CAPABLE_SELECTORS]);
+    const backlitState = new Map(TRACKED_CANDLE_SELECTORS.map(s => [s, { backlit: true, immune: false }]));
     let lastBacklitMs = 0, cachedBacklit = [], cachedImmune = [];
+    function getCandleSelectors(targetOrProjId, role) {
+      if (Array.isArray(targetOrProjId)) return uniqSelectors(targetOrProjId);
+      if (targetOrProjId && typeof targetOrProjId === 'object') {
+        const objectRole = typeof targetOrProjId.role === 'string' ? targetOrProjId.role : role;
+        const objectProj = targetOrProjId.projId || targetOrProjId.projectionId;
+        if (objectProj) return getProjectionRoleSelectors(objectProj, objectRole || 'container');
+        if (Array.isArray(targetOrProjId.selectors)) return uniqSelectors(targetOrProjId.selectors);
+      }
+      if (typeof targetOrProjId !== 'string') return [];
+      const str = targetOrProjId.trim();
+      if (!str) return [];
+      if (role) return getProjectionRoleSelectors(str, role);
+      if (str.includes('.') || str.includes('#') || str.includes('[') || str.includes(':') || str.includes(' ')) return [str];
+      const mapped = getProjectionRoleSelectors(str, 'container');
+      return mapped.length ? mapped : [str];
+    }
+    function setCandleState(targetOrProjId, roleOrOn, maybeOn, field) {
+      const role = typeof roleOrOn === 'string' ? roleOrOn : null;
+      const on = role ? maybeOn : roleOrOn;
+      if (typeof on !== 'boolean') return;
+      const selectors = getCandleSelectors(targetOrProjId, role || undefined);
+      selectors.forEach(sel => {
+        const state = backlitState.get(sel);
+        if (!state) return;
+        if (field === 'immune' && !IMMUNE_CAPABLE_SELECTOR_SET.has(sel)) return;
+        state[field] = on;
+      });
+      lastBacklitMs = 0;
+    }
     function maybeGatherBacklit(app) {
       const now = performance.now();
       if (now - lastBacklitMs < 100) return;
       lastBacklitMs = now;
       const ar = app.getBoundingClientRect();
       cachedBacklit = []; cachedImmune = [];
-      for (const sel of BACKLIT_SELECTORS) {
+      for (const sel of TRACKED_CANDLE_SELECTORS) {
         const st = backlitState.get(sel);
-        const el = app.querySelector(sel);
-        if (!el) continue;
-        const r = el.getBoundingClientRect();
-        if (r.width < 1 || r.height < 1) continue;
-        const rect = { x: r.left - ar.left, y: r.top - ar.top, w: r.width, h: r.height };
-        if (st?.immune) { cachedImmune.push(rect); continue; }
-        if (st?.backlit !== false) cachedBacklit.push(rect);
+        const elements = app.querySelectorAll(sel);
+        if (!elements.length) continue;
+        elements.forEach(el => {
+          if (!el || el.hidden) return;
+          const r = el.getBoundingClientRect();
+          if (r.width < 1 || r.height < 1) return;
+          const rect = { x: r.left - ar.left, y: r.top - ar.top, w: r.width, h: r.height };
+          if (st?.immune) { cachedImmune.push(rect); return; }
+          if (BACKLIT_SELECTOR_SET.has(sel) && st?.backlit !== false) cachedBacklit.push(rect);
+        });
       }
     }
 
@@ -7398,11 +7503,17 @@
       set backlitAlpha(v)  { BACKLIT_ALPHA = clamp(Number(v) || 0, 0, 1); },
       get backlitBlur()    { return BACKLIT_BLUR; },
       set backlitBlur(v)   { BACKLIT_BLUR = Math.max(0, Number(v) || 0); },
+      resolveSelectors(targetOrProjId, role) { return getCandleSelectors(targetOrProjId, role); },
       getState(sel)        { return backlitState.get(sel); },
-      setBacklit(sel, on)  { const s = backlitState.get(sel); if (s) { s.backlit = !!on; lastBacklitMs = 0; } },
-      setImmune(sel, on)   { const s = backlitState.get(sel); if (s) { s.immune = !!on; lastBacklitMs = 0; } },
+      getStates(targetOrProjId, role) {
+        const selectors = getCandleSelectors(targetOrProjId, role);
+        return selectors.map(sel => ({ selector: sel, state: backlitState.get(sel) || null }));
+      },
+      setBacklit(targetOrProjId, roleOrOn, maybeOn) { setCandleState(targetOrProjId, roleOrOn, maybeOn, 'backlit'); },
+      setImmune(targetOrProjId, roleOrOn, maybeOn)  { setCandleState(targetOrProjId, roleOrOn, maybeOn, 'immune'); },
       selectors:           BACKLIT_SELECTORS,
       projIdMap:           PROJ_ID_TO_BACKLIT,
+      projectionRoles:     candlelightProjectionRoles,
     };
 
     // ── Candlelight controls in the Vars panel ────────────────────────────────
