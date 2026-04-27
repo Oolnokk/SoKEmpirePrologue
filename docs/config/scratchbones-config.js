@@ -392,21 +392,85 @@ window.SCRATCHBONES_CONFIG = {
           "contactAlpha": 0.2
         },
         "candlelight": {
+          "backlitAlphaDefault": 0.14,
+          "backlitBlurDefault": 0,
           "masking": {
             "gatherCadenceMs": 100,
             "debugImmuneMasks": false,
             "textMaskPaddingPx": 1
           },
-          "targets": {
+          "selectorDefaults": {
+            "#aiSidebar": { "backlit": true, "immune": false },
+            ".humanSeatZone": { "backlit": true, "immune": false },
+            ".turnSpotlight": { "backlit": true, "immune": false },
+            ".seatAvatarBox": { "backlit": true, "immune": false },
+            ".turnSpotlightAvatar": { "backlit": true, "immune": false },
+            ".cin-avatar": { "backlit": true, "immune": false },
+            ".seatName": { "backlit": true, "immune": false },
+            ".seatMeta": { "backlit": true, "immune": false },
+            ".seatStatus": { "backlit": true, "immune": false },
+            ".turnSpotlightNameBar": { "backlit": true, "immune": false },
+            ".cin-name": { "backlit": true, "immune": false },
+            "[data-stake-left-contribution-anchor]": { "backlit": true, "immune": false },
+            "[data-stake-right-contribution-anchor]": { "backlit": true, "immune": false },
+            "[data-stake-betting-choice-anchor]": { "backlit": true, "immune": false },
+            ".stakeTierBtnRow": { "backlit": true, "immune": false }
+          },
+          "selectorGroups": {
             "backlit": {
               "container": ["#aiSidebar", ".humanSeatZone", ".turnSpotlight"],
               "avatar": [".seatAvatarBox", ".turnSpotlightAvatar", ".cin-avatar"],
-              "text": [".seatName", ".seatMeta", ".seatStatus", ".turnSpotlightNameBar", ".cin-name"]
+              "text": [".seatName", ".seatMeta", ".seatStatus", ".turnSpotlightNameBar", ".cin-name"],
+              "sub": ["[data-stake-left-contribution-anchor]", "[data-stake-right-contribution-anchor]", "[data-stake-betting-choice-anchor]", ".stakeTierBtnRow"]
             },
             "immuneCapable": {
               "container": ["#aiSidebar", ".humanSeatZone", ".turnSpotlight"],
               "avatar": [".seatAvatarBox", ".turnSpotlightAvatar", ".cin-avatar"],
-              "text": [".seatName", ".seatMeta", ".seatStatus", ".turnSpotlightNameBar", ".cin-name"]
+              "text": [".seatName", ".seatMeta", ".seatStatus", ".turnSpotlightNameBar", ".cin-name"],
+              "sub": ["[data-stake-left-contribution-anchor]", "[data-stake-right-contribution-anchor]", "[data-stake-betting-choice-anchor]", ".stakeTierBtnRow"]
+            }
+          },
+          "projectionMappings": {
+            "sidebar": {
+              "container": ["#aiSidebar"],
+              "avatar": ["#aiSidebar .seatAvatarBox"],
+              "text": ["#aiSidebar .seatName", "#aiSidebar .seatMeta", "#aiSidebar .seatStatus"]
+            },
+            "human-seat-zone": {
+              "container": [".humanSeatZone"],
+              "avatar": [".humanSeatZone .seatAvatarBox"],
+              "text": [".humanSeatZone .seatName", ".humanSeatZone .seatMeta", ".humanSeatZone .seatStatus"]
+            },
+            "turn-spotlight": {
+              "container": [".turnSpotlight"],
+              "avatar": [".turnSpotlightAvatar"],
+              "text": [".turnSpotlightNameBar", ".cin-name"]
+            },
+            "betting-left-contribution-anchor": {
+              "sub": ["[data-stake-left-contribution-anchor]"]
+            },
+            "betting-right-contribution-anchor": {
+              "sub": ["[data-stake-right-contribution-anchor]"]
+            },
+            "betting-choice-anchor": {
+              "sub": ["[data-stake-betting-choice-anchor]"]
+            },
+            "betting-tier-buttons": {
+              "sub": [".stakeTierBtnRow"]
+            }
+          },
+          "targets": {
+            "backlit": {
+              "container": ["#aiSidebar", ".humanSeatZone", ".turnSpotlight"],
+              "avatar": [".seatAvatarBox", ".turnSpotlightAvatar", ".cin-avatar"],
+              "text": [".seatName", ".seatMeta", ".seatStatus", ".turnSpotlightNameBar", ".cin-name"],
+              "sub": ["[data-stake-left-contribution-anchor]", "[data-stake-right-contribution-anchor]", "[data-stake-betting-choice-anchor]", ".stakeTierBtnRow"]
+            },
+            "immuneCapable": {
+              "container": ["#aiSidebar", ".humanSeatZone", ".turnSpotlight"],
+              "avatar": [".seatAvatarBox", ".turnSpotlightAvatar", ".cin-avatar"],
+              "text": [".seatName", ".seatMeta", ".seatStatus", ".turnSpotlightNameBar", ".cin-name"],
+              "sub": ["[data-stake-left-contribution-anchor]", "[data-stake-right-contribution-anchor]", "[data-stake-betting-choice-anchor]", ".stakeTierBtnRow"]
             }
           },
           "projectionRoles": {
@@ -424,6 +488,18 @@ window.SCRATCHBONES_CONFIG = {
               "container": [".turnSpotlight"],
               "avatar": [".turnSpotlightAvatar"],
               "text": [".turnSpotlightNameBar", ".cin-name"]
+            },
+            "betting-left-contribution-anchor": {
+              "sub": ["[data-stake-left-contribution-anchor]"]
+            },
+            "betting-right-contribution-anchor": {
+              "sub": ["[data-stake-right-contribution-anchor]"]
+            },
+            "betting-choice-anchor": {
+              "sub": ["[data-stake-betting-choice-anchor]"]
+            },
+            "betting-tier-buttons": {
+              "sub": [".stakeTierBtnRow"]
             }
           }
         }
