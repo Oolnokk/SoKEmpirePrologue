@@ -7045,12 +7045,14 @@
     const glowCtx   = glowCanvas.getContext('2d',   { alpha: true });
 
     // Off-screen work buffers
-    const workDark   = document.createElement('canvas');
-    const workGlow   = document.createElement('canvas');
-    const workShadow = document.createElement('canvas');
-    const wdCtx  = workDark.getContext('2d',   { alpha: true });
-    const wgCtx  = workGlow.getContext('2d',   { alpha: true });
-    const wsCtx  = workShadow.getContext('2d', { alpha: true });
+    const workDark    = document.createElement('canvas');
+    const workGlow    = document.createElement('canvas');
+    const workShadow  = document.createElement('canvas');
+    const workBacklit = document.createElement('canvas');
+    const wdCtx  = workDark.getContext('2d',    { alpha: true });
+    const wgCtx  = workGlow.getContext('2d',    { alpha: true });
+    const wsCtx  = workShadow.getContext('2d',  { alpha: true });
+    const wbCtx  = workBacklit.getContext('2d', { alpha: true });
 
     // Silhouette cache: pre-render each unique img.src as a black shape once
     const silhouetteCache = new Map();
@@ -7080,35 +7082,62 @@
       return cachedOccluders;
     }
 
-    // Backlit UI panels: these elements get their own element-shaped glow source
-    // so they read as self-illuminated objects inside the full-app vignette.
-    const BACKLIT_SELECTORS = ['#aiSidebar', '.humanSeatZone', '.turnSpotlight'];
-    let lastBacklitMs = 0, cachedBacklit = [];
+    // ── Backlit UI panels ─────────────────────────────────────────────────────
+    // Each panel gets its own element-shaped light source: the box IS the core,
+    // glow spills from the edges via blur-blit (no hard edge, low desaturation).
+    const BACKLIT_SELECTORS   = ['#aiSidebar', '.humanSeatZone', '.turnSpotlight'];
+    const PROJ_ID_TO_BACKLIT  = { 'sidebar': '#aiSidebar', 'human-seat-zone': '.humanSeatZone', 'turn-spotlight': '.turnSpotlight' };
+    // Mutable runtime parameters (exposed on window.__candleLight for the UI)
+    let BACKLIT_ALPHA = 0.14;   // overall glow opacity (screen blend)
+    let BACKLIT_BLUR  = 0;      // px; 0 = auto (35% of element min-dimension)
+    // Per-selector state
+    const backlitState = new Map(BACKLIT_SELECTORS.map(s => [s, { backlit: true, immune: false }]));
+    let lastBacklitMs = 0, cachedBacklit = [], cachedImmune = [];
     function maybeGatherBacklit(app) {
       const now = performance.now();
       if (now - lastBacklitMs < 100) return;
       lastBacklitMs = now;
       const ar = app.getBoundingClientRect();
-      cachedBacklit = [];
+      cachedBacklit = []; cachedImmune = [];
       for (const sel of BACKLIT_SELECTORS) {
+        const st = backlitState.get(sel);
         const el = app.querySelector(sel);
         if (!el) continue;
         const r = el.getBoundingClientRect();
-        if (r.width > 0 && r.height > 0)
-          cachedBacklit.push({ x: r.left - ar.left, y: r.top - ar.top, w: r.width, h: r.height });
+        if (r.width < 1 || r.height < 1) continue;
+        const rect = { x: r.left - ar.left, y: r.top - ar.top, w: r.width, h: r.height };
+        if (st?.immune) { cachedImmune.push(rect); continue; }
+        if (st?.backlit !== false) cachedBacklit.push(rect);
       }
     }
 
-    // Draw a box-shaped backlight: the element rect IS the bright core,
-    // with a low-radius glow spilling outward from its edges via shadowBlur.
-    function drawBacklitPanel(ctx, x, y, bw, bh, alpha) {
-      const glowR = clamp(Math.min(bw, bh) * 0.18, 10, 26);
+    // Punch out immune element rects from any canvas (destination-out erase).
+    function punchOutImmune(ctx) {
+      if (!cachedImmune.length) return;
       ctx.save();
-      ctx.shadowColor = `rgba(255, 228, 185, ${alpha * 0.88})`;
-      ctx.shadowBlur  = glowR;
-      ctx.fillStyle   = `rgba(255, 228, 185, ${alpha})`;
-      ctx.fillRect(x, y, bw, bh);
+      ctx.globalCompositeOperation = 'destination-out';
+      ctx.fillStyle = '#000';
+      for (const r of cachedImmune) ctx.fillRect(r.x, r.y, r.w, r.h);
       ctx.restore();
+    }
+
+    // Draw all backlit panels: fill to workBacklit, blit with blur → glow canvas.
+    // Blur spreads the fill outward, naturally softening the edges with no hard
+    // boundary. Saturated amber (not near-white) keeps desaturation minimal.
+    function drawBacklitPanels(ctx) {
+      if (!cachedBacklit.length) return;
+      for (const b of cachedBacklit) {
+        wbCtx.clearRect(0, 0, w, h);
+        wbCtx.fillStyle = 'rgba(255, 168, 60, 1)';
+        wbCtx.fillRect(b.x, b.y, b.w, b.h);
+        const blurR = BACKLIT_BLUR > 0 ? BACKLIT_BLUR : Math.min(b.w, b.h) * 0.35;
+        ctx.save();
+        ctx.globalAlpha = BACKLIT_ALPHA;
+        ctx.filter = `blur(${blurR.toFixed(1)}px)`;
+        ctx.drawImage(workBacklit, 0, 0);
+        ctx.filter = 'none';
+        ctx.restore();
+      }
     }
 
     function resize(app) {
@@ -7125,9 +7154,10 @@
       shadowCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
       darkCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
       glowCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
-      workDark.width   = w; workDark.height   = h;
-      workGlow.width   = w; workGlow.height   = h;
-      workShadow.width = w; workShadow.height = h;
+      workDark.width    = w; workDark.height    = h;
+      workGlow.width    = w; workGlow.height    = h;
+      workShadow.width  = w; workShadow.height  = h;
+      workBacklit.width = w; workBacklit.height = h;
     }
 
     function ensureInApp(app) {
@@ -7252,6 +7282,7 @@
       shadowCtx.filter = 'blur(3px)';
       shadowCtx.drawImage(workShadow, 0, 0);
       shadowCtx.filter = 'none';
+      punchOutImmune(shadowCtx);
 
       // ── Darkness layer ─────────────────────────────────────────────────────
       wdCtx.clearRect(0, 0, w, h);
@@ -7265,6 +7296,7 @@
       wdCtx.fillRect(0, 0, w, h);
       darkCtx.clearRect(0, 0, w, h);
       darkCtx.drawImage(workDark, 0, 0);
+      punchOutImmune(darkCtx);
 
       // ── Glow layer ─────────────────────────────────────────────────────────
       wgCtx.clearRect(0, 0, w, h);
@@ -7313,15 +7345,13 @@
         wgCtx.stroke();
       }
 
-      // Backlit panels — element-shaped source, glow spills from box edges
+      // Backlit panels — element-shaped amber glow, soft blur edges
       wgCtx.globalCompositeOperation = 'source-over';
-      const backlitAlpha = 0.16 * Math.min(pulse, 1.05);
-      for (const b of cachedBacklit) {
-        drawBacklitPanel(wgCtx, b.x, b.y, b.w, b.h, backlitAlpha);
-      }
+      drawBacklitPanels(wgCtx);
 
       glowCtx.clearRect(0, 0, w, h);
       glowCtx.drawImage(workGlow, 0, 0);
+      punchOutImmune(glowCtx);
 
       // ── Lerp clone lighting ─────────────────────────────────────────────────
       // Clones on document.body get a CSS filter that approximates their position
@@ -7354,10 +7384,88 @@
       requestAnimationFrame(ms => draw(ms / 1000));
     }
 
+    // ── Public API (used by the Vars panel controls) ──────────────────────────
+    window.__candleLight = {
+      get backlitAlpha()   { return BACKLIT_ALPHA; },
+      set backlitAlpha(v)  { BACKLIT_ALPHA = clamp(Number(v) || 0, 0, 1); },
+      get backlitBlur()    { return BACKLIT_BLUR; },
+      set backlitBlur(v)   { BACKLIT_BLUR = Math.max(0, Number(v) || 0); },
+      getState(sel)        { return backlitState.get(sel); },
+      setBacklit(sel, on)  { const s = backlitState.get(sel); if (s) { s.backlit = !!on; lastBacklitMs = 0; } },
+      setImmune(sel, on)   { const s = backlitState.get(sel); if (s) { s.immune = !!on; lastBacklitMs = 0; } },
+      selectors:           BACKLIT_SELECTORS,
+      projIdMap:           PROJ_ID_TO_BACKLIT,
+    };
+
+    // ── Candlelight controls in the Vars panel ────────────────────────────────
+    function initCandleLightControls() {
+      const panelBody = document.getElementById('projVarPanelBody');
+      const panelTitle = document.getElementById('projVarPanelTitle');
+      if (!panelBody || !panelTitle) return;
+
+      function getSelectedSel() {
+        const txt = panelTitle.textContent || '';
+        const sep = txt.indexOf(' · ');
+        const projId = sep >= 0 ? txt.slice(sep + 3).trim() : null;
+        return projId ? window.__candleLight.projIdMap[projId] || null : null;
+      }
+
+      function buildSection() {
+        const sel = getSelectedSel();
+        const st  = sel ? window.__candleLight.getState(sel) : null;
+        const sec = document.createElement('div');
+        sec.className = 'candleLightSection';
+        sec.style.cssText = 'border-top:1px solid rgba(200,170,120,0.22);margin-top:10px;padding-top:8px';
+        sec.innerHTML = `
+          <div class="projVarHint" style="color:#c89952;font-weight:600;margin-bottom:4px">Candlelight</div>
+          <label class="projVarRow"><span class="projVarLabel">backlit-alpha</span>
+            <input class="projVarInput" type="number" data-cl="backlitAlpha" step="0.01" min="0" max="1" value="${window.__candleLight.backlitAlpha.toFixed(2)}">
+            <input class="projVarInput" type="range"  data-cl="backlitAlpha" step="0.01" min="0" max="1" value="${window.__candleLight.backlitAlpha.toFixed(2)}">
+          </label>
+          <label class="projVarRow"><span class="projVarLabel">backlit-blur (0=auto)</span>
+            <input class="projVarInput" type="number" data-cl="backlitBlur" step="1" min="0" max="300" value="${window.__candleLight.backlitBlur}">
+            <input class="projVarInput" type="range"  data-cl="backlitBlur" step="1" min="0" max="300" value="${window.__candleLight.backlitBlur}">
+          </label>
+          ${st ? `<div style="margin-top:6px;font-size:0.82em;color:#cdbb9f;margin-bottom:2px">${sel}</div>
+          <label class="projVarRow" style="gap:8px;align-items:center">
+            <span class="projVarLabel">backlit</span>
+            <input type="checkbox" data-cl="backlit" data-sel="${sel}" ${st.backlit ? 'checked' : ''}>
+          </label>
+          <label class="projVarRow" style="gap:8px;align-items:center">
+            <span class="projVarLabel">immune (fully unaffected)</span>
+            <input type="checkbox" data-cl="immune" data-sel="${sel}" ${st.immune ? 'checked' : ''}>
+          </label>` : ''}
+        `;
+        sec.addEventListener('input', e => {
+          const key = e.target.dataset.cl;
+          const elSel = e.target.dataset.sel;
+          if (!key) return;
+          if (key === 'backlitAlpha') {
+            window.__candleLight.backlitAlpha = e.target.value;
+            sec.querySelectorAll('[data-cl="backlitAlpha"]').forEach(i => { if (i !== e.target) i.value = e.target.value; });
+          } else if (key === 'backlitBlur') {
+            window.__candleLight.backlitBlur = e.target.value;
+            sec.querySelectorAll('[data-cl="backlitBlur"]').forEach(i => { if (i !== e.target) i.value = e.target.value; });
+          } else if (key === 'backlit' && elSel) {
+            window.__candleLight.setBacklit(elSel, e.target.checked);
+          } else if (key === 'immune' && elSel) {
+            window.__candleLight.setImmune(elSel, e.target.checked);
+          }
+        });
+        return sec;
+      }
+
+      new MutationObserver(() => {
+        if (!panelBody.querySelector('.candleLightSection'))
+          panelBody.appendChild(buildSection());
+      }).observe(panelBody, { childList: true });
+    }
+
     if (document.readyState === 'loading') {
-      document.addEventListener('DOMContentLoaded', start);
+      document.addEventListener('DOMContentLoaded', () => { start(); initCandleLightControls(); });
     } else {
       start();
+      initCandleLightControls();
     }
   })();
   </script>
