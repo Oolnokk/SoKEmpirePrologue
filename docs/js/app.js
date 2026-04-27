@@ -5302,7 +5302,7 @@ function renderBottles(ctx) {
     const pos = inst.position;
     const scaleX = inst.scale?.x || 1;
     const scaleY = inst.scale?.y || scaleX;
-    const rotRad = (inst.rotationDeg || 0) * Math.PI / 180;
+    const rotRad = degToRad(inst.rotationDeg || 0);
 
     // Get first part with a propTemplate
     const part = prefab.parts.find(p => p?.propTemplate);
@@ -6123,10 +6123,10 @@ window.addEventListener('mousemove', (e) => {
   }
 });
 
-// ============================================================================
+// ---------------------------------------------------------------------------
 // 3D / Runtime Debug Panel
 // TODO: See docs/renderer-README.md for renderer module documentation
-// ============================================================================
+// ---------------------------------------------------------------------------
 
 // State for debug panel
 let gameDebugPanelInitialized = false;
