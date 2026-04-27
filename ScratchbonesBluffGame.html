@@ -7080,31 +7080,30 @@
       return cachedOccluders;
     }
 
-    // Punch-outs: lighting covers all of #app except these immune elements.
-    const IMMUNE_SELECTORS = ['#aiSidebar', '.humanSeatZone', '.turnSpotlight'];
-    let lastZoneMs = 0, cachedPunchOuts = [];
+    // Light zones: clip to every <img> visible inside #app.
+    // CSS-rendered panels (seats, spotlight, topbar) have no <img>, so they
+    // are immune without any explicit exclusion list or layer-order dependency.
+    let lastZoneMs = 0, cachedZones = [];
     function maybeLightZones(app) {
       const now = performance.now();
       if (now - lastZoneMs < 100) return;
       lastZoneMs = now;
       const ar = app.getBoundingClientRect();
-      cachedPunchOuts = [];
-      for (const sel of IMMUNE_SELECTORS) {
-        const el = app.querySelector(sel);
-        if (!el) continue;
-        const r = el.getBoundingClientRect();
-        if (r.width > 0 && r.height > 0)
-          cachedPunchOuts.push({ x: r.left - ar.left, y: r.top - ar.top, w: r.width, h: r.height });
-      }
+      cachedZones = [];
+      app.querySelectorAll('img').forEach(img => {
+        if (!img.complete || !img.naturalWidth) return;
+        const r = img.getBoundingClientRect();
+        if (r.width < 2 || r.height < 2) return;
+        cachedZones.push({ x: r.left - ar.left, y: r.top - ar.top, w: r.width, h: r.height });
+      });
     }
 
     function withClip(ctx, fn) {
-      if (!cachedPunchOuts.length) { fn(); return; }
+      if (!cachedZones.length) { fn(); return; }
       ctx.save();
       ctx.beginPath();
-      ctx.rect(0, 0, w, h);
-      for (const p of cachedPunchOuts) ctx.rect(p.x, p.y, p.w, p.h);
-      ctx.clip('evenodd');
+      for (const z of cachedZones) ctx.rect(z.x, z.y, z.w, z.h);
+      ctx.clip();
       fn();
       ctx.restore();
     }
