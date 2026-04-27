@@ -2761,8 +2761,10 @@
         const old = bgmAudio;
         const next = buildAudio(url, 0);
         if (!next) return;
+        console.debug('[scratchbones audio] setTrack', { url, loop, fadeMs, targetVolume });
         next.loop = !!loop;
         next.addEventListener('error', () => {
+          console.debug('[scratchbones audio] track error', { url, loop, challengeBgmActive });
           if (!challengeBgmActive && !loop) {
             failedPlaylistTracks.add(url);
             playNextPlaylistTrack();
@@ -2799,6 +2801,12 @@
           attempts -= 1;
           const url = playlist[idx];
           if (!isUrl(url) || failedPlaylistTracks.has(url)) continue;
+          console.debug('[scratchbones audio] selecting playlist track', {
+            url,
+            idx,
+            playlistSize: playlist.length,
+            failedCount: failedPlaylistTracks.size,
+          });
           setTrack(url, { loop: false });
           if (bgmAudio) {
             bgmAudio.onended = () => {
