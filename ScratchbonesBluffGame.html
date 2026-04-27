@@ -7136,6 +7136,7 @@
         'betting-right-contribution-anchor': { sub: ['[data-stake-right-contribution-anchor]'] },
         'betting-choice-anchor': { sub: ['[data-stake-betting-choice-anchor]'] },
         'betting-tier-buttons': { sub: ['.stakeTierBtnRow'] },
+        'avatar-*': { sub: ['[data-proj-id="{projId}"]'] },
       },
       selectorDefaults: {},
     };
@@ -7180,10 +7181,23 @@
     function uniqSelectors(selectors) {
       return Array.from(new Set(normalizeSelectorArray(selectors)));
     }
+    function matchesProjPattern(pattern, projId) {
+      if (typeof pattern !== 'string' || typeof projId !== 'string') return false;
+      return pattern.endsWith('*') ? projId.startsWith(pattern.slice(0, -1)) : pattern === projId;
+    }
+    function applyProjectionSelectorTemplate(selector, projId) {
+      return String(selector || '').replaceAll('{projId}', projId || '');
+    }
     function getProjectionRoleSelectors(projId, role = 'container') {
-      const byRole = candlelightProjectionRoles[projId] || {};
-      const roleSelectors = normalizeSelectorArray(byRole[role]);
-      if (roleSelectors.length) return roleSelectors;
+      const roleSelectors = [];
+      for (const [pattern, byRole] of Object.entries(candlelightProjectionRoles || {})) {
+        if (!matchesProjPattern(pattern, projId)) continue;
+        normalizeSelectorArray(byRole?.[role]).forEach(sel => {
+          roleSelectors.push(applyProjectionSelectorTemplate(sel, projId));
+        });
+      }
+      const deduped = uniqSelectors(roleSelectors);
+      if (deduped.length) return deduped;
       if (role !== 'container') return [];
       const legacySelector = LEGACY_PROJ_ID_TO_BACKLIT[projId];
       return legacySelector ? [legacySelector] : [];
@@ -7762,6 +7776,7 @@
       },
       setBacklit(targetOrProjId, roleOrOn, maybeOn) { setCandleState(targetOrProjId, roleOrOn, maybeOn, 'backlit'); },
       setImmune(targetOrProjId, roleOrOn, maybeOn)  { setCandleState(targetOrProjId, roleOrOn, maybeOn, 'immune'); },
+      setProjectionImmune(projId, on, role = 'sub') { setCandleState({ projId, role }, Boolean(on), undefined, 'immune'); },
       selectors:           BACKLIT_SELECTORS,
       trackedSelectors:    TRACKED_CANDLE_SELECTORS,
       selectorGroups:      selectorGroups,
@@ -7782,10 +7797,9 @@
         const projId = sep >= 0 ? txt.slice(sep + 3).trim() : null;
         if (!projId) return null;
         const selectedSourceEl = document.querySelector(`[data-proj-id="${projId}"]`);
-        const roleMapping = candlelightProjectionRoles?.[projId];
-        if (selectedSourceEl && roleMapping && typeof roleMapping === 'object') {
-          for (const [role, selectors] of Object.entries(roleMapping)) {
-            const roleSelectors = normalizeSelectorArray(selectors);
+        if (selectedSourceEl) {
+          for (const role of CANDLELIGHT_ROLE_KEYS) {
+            const roleSelectors = getProjectionRoleSelectors(projId, role);
             for (const selector of roleSelectors) {
               if (selectedSourceEl.matches(selector) || selectedSourceEl.closest(selector)) return selector;
             }

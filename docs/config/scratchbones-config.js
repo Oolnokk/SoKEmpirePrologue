@@ -457,6 +457,9 @@ window.SCRATCHBONES_CONFIG = {
             },
             "betting-tier-buttons": {
               "sub": [".stakeTierBtnRow"]
+            },
+            "avatar-*": {
+              "sub": ["[data-proj-id=\"{projId}\"]"]
             }
           },
           "targets": {
@@ -500,6 +503,9 @@ window.SCRATCHBONES_CONFIG = {
             },
             "betting-tier-buttons": {
               "sub": [".stakeTierBtnRow"]
+            },
+            "avatar-*": {
+              "sub": ["[data-proj-id=\"{projId}\"]"]
             }
           }
         }

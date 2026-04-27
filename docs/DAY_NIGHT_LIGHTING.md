@@ -259,6 +259,7 @@ When a fallback is used, the game logs a one-time warning in the console so conf
   - `avatar`
   - `text`
   - `sub`
+- projection id patterns support `*` suffix (for example `avatar-*`) and selectors may include `{projId}` templates (for example `[data-proj-id="{projId}"]`) to target a specific element instance.
 
 ### Immune behavior
 
@@ -274,6 +275,7 @@ Each selector can declare per-selector defaults in `selectorDefaults`:
 - `immune: true` punches that element out of dark/glow passes (fully unaffected by candlelight).
 - Immune masking preserves text/avatar silhouettes where possible (instead of coarse box cutouts).
 - Sub-element selectors (for example betting anchors/buttons) can now be configured the same way as major panels.
+- You can make individual avatars immune (e.g., `avatar-1`, `avatar-2`, `avatar-3`) by mapping `avatar-*` to a selector template and toggling immunity on those projection ids, without making the whole sidebar container immune.
 
 ## Example: Manual Candle Light Creation
 
