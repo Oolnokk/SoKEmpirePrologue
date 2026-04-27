@@ -7080,22 +7080,21 @@
       return cachedOccluders;
     }
 
-    // Punch-outs: lighting covers all of #app; excluded rects are cut out with evenodd.
-    // .claimCluster is excluded while the challenge red background is active.
+    // Punch-outs: lighting covers all of #app except these immune elements.
+    const IMMUNE_SELECTORS = ['#aiSidebar', '.humanSeatZone', '.turnSpotlight', '.claimCluster'];
     let lastZoneMs = 0, cachedPunchOuts = [];
     function maybeLightZones(app) {
       const now = performance.now();
       if (now - lastZoneMs < 100) return;
       lastZoneMs = now;
+      const ar = app.getBoundingClientRect();
       cachedPunchOuts = [];
-      if (app.classList.contains('challenge-visuals-active')) {
-        const ar = app.getBoundingClientRect();
-        const cc = app.querySelector('.claimCluster');
-        if (cc) {
-          const r = cc.getBoundingClientRect();
-          if (r.width > 0 && r.height > 0)
-            cachedPunchOuts.push({ x: r.left - ar.left, y: r.top - ar.top, w: r.width, h: r.height });
-        }
+      for (const sel of IMMUNE_SELECTORS) {
+        const el = app.querySelector(sel);
+        if (!el) continue;
+        const r = el.getBoundingClientRect();
+        if (r.width > 0 && r.height > 0)
+          cachedPunchOuts.push({ x: r.left - ar.left, y: r.top - ar.top, w: r.width, h: r.height });
       }
     }
 
