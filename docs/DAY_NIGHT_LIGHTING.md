@@ -237,6 +237,44 @@ This ensures smooth transitions and proper emissive material updates.
 - **Event-Driven**: Lighting only updates when time of day changes or during transitions
 - **Efficient Transitions**: Uses cubic ease-in-out for smooth, performant animations
 
+## Scratchbones Candlelight Overlay Config (2D HUD)
+
+The Scratchbones HUD candlelight overlay is configured from `docs/config/scratchbones-config.js` under:
+
+- `game.layout.lighting.candlelight.backlitAlphaDefault`
+- `game.layout.lighting.candlelight.backlitBlurDefault`
+- `game.layout.lighting.candlelight.selectorGroups`
+- `game.layout.lighting.candlelight.projectionMappings`
+- `game.layout.lighting.candlelight.selectorDefaults`
+
+`ScratchbonesBluffGame.html` consumes this config at runtime and only uses in-code fallbacks when keys are missing.
+When a fallback is used, the game logs a one-time warning in the console so config drift is visible during testing.
+
+### Selector groups and projection mappings
+
+- `selectorGroups.backlit` controls which selectors receive the amber backlight treatment.
+- `selectorGroups.immuneCapable` controls which selectors are allowed to toggle immunity.
+- `projectionMappings` maps projection ids (including sub-element ids) to role-specific selectors:
+  - `container`
+  - `avatar`
+  - `text`
+  - `sub`
+
+### Immune behavior
+
+Each selector can declare per-selector defaults in `selectorDefaults`:
+
+```js
+{
+  ".seatName": { backlit: true, immune: false }
+}
+```
+
+- `backlit: true` enables glow rendering for matching elements by default.
+- `immune: true` punches that element out of dark/glow passes (fully unaffected by candlelight).
+- Immune masking preserves text/avatar silhouettes where possible (instead of coarse box cutouts).
+- Sub-element selectors (for example betting anchors/buttons) can now be configured the same way as major panels.
+
 ## Example: Manual Candle Light Creation
 
 If you need to create candle lights manually:
