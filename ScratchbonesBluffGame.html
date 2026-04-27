@@ -7154,8 +7154,13 @@
       const legacySelector = LEGACY_PROJ_ID_TO_BACKLIT[projId];
       return legacySelector ? [legacySelector] : [];
     }
+    function flattenProjectionRoleSelectors(projectionRoles) {
+      if (!projectionRoles || typeof projectionRoles !== 'object') return [];
+      return Object.values(projectionRoles).flatMap(roleMap => flattenTargetSelectors(roleMap));
+    }
     const BACKLIT_SELECTORS = uniqSelectors([
       ...flattenTargetSelectors(candlelightTargets.backlit),
+      ...flattenProjectionRoleSelectors(candlelightProjectionRoles),
       ...Object.values(LEGACY_PROJ_ID_TO_BACKLIT),
     ]);
     const IMMUNE_CAPABLE_SELECTORS = uniqSelectors([
