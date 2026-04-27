@@ -6510,6 +6510,13 @@
         varsPanelTitle.textContent = `Sub Element · ${projId}`;
         const subSize = authored.subSizes?.[projId] || { width: 0, height: 0 };
         const liveSize = getLiveSubElementSize(projId);
+        const subImmuneState = (() => {
+          const candleApi = window.__candleLight;
+          if (!candleApi?.resolveSelectors || !candleApi?.getState) return null;
+          const resolvedSelector = candleApi.resolveSelectors({ projId, role: 'sub' })[0] || null;
+          if (!resolvedSelector) return null;
+          return { selector: resolvedSelector, state: candleApi.getState(resolvedSelector) || { backlit: true, immune: false } };
+        })();
         const field = (key, label, value) => `<label class="projVarRow sizePosVar"><span class="projVarLabel">${label}</span><input class="projVarInput" data-authored-sub-field="${key}" data-sub-proj-id="${escapeHtml(projId)}" type="number" step="1" value="${Math.round(value)}"><span class="projVarHint">px</span></label>`;
         varsPanelBody.innerHTML = `
           <div class="projVarHint">Sub-element offset (translate within parent).</div>
@@ -6517,6 +6524,7 @@
           ${field('dy', 'dy', offset.dy ?? 0)}
           ${field('width', 'width', subSize.width || liveSize.width)}
           ${field('height', 'height', subSize.height || liveSize.height)}
+          ${subImmuneState ? `<label class="projVarRow" style="gap:8px;align-items:center"><span class="projVarLabel">immune (candlelight)</span><input type="checkbox" data-authored-sub-immune="true" data-sub-proj-id="${escapeHtml(projId)}" ${subImmuneState.state?.immune ? 'checked' : ''}></label><div class="projVarHint">${escapeHtml(subImmuneState.selector)}</div>` : ''}
           ${varRows ? `<div class="projVarHint" style="margin-top:8px;">Linked CSS vars for ${escapeHtml(projId)}.</div>${varRows}` : ''}
         `;
         return;
@@ -6846,6 +6854,14 @@
         if (projectionUiState.varsPanelOpen) renderVarEditor();
       }, true);
       varsPanelBody.addEventListener('input', (event) => {
+        const authoredSubImmuneToggle = event.target.getAttribute('data-authored-sub-immune');
+        if (authoredSubImmuneToggle) {
+          const projId = event.target.getAttribute('data-sub-proj-id');
+          if (!projId || !window.__candleLight?.setProjectionImmune) return;
+          window.__candleLight.setProjectionImmune(projId, Boolean(event.target.checked), 'sub');
+          updateEditorStatus(`Sub candlelight immunity ${projId}=${event.target.checked ? 'on' : 'off'}.`);
+          return;
+        }
         const authoredSubField = event.target.getAttribute('data-authored-sub-field');
         if (authoredSubField) {
           const projId = event.target.getAttribute('data-sub-proj-id');
@@ -7386,9 +7402,16 @@
       if (typeof on !== 'boolean') return;
       const selectors = getCandleSelectors(targetOrProjId, role || undefined);
       selectors.forEach(sel => {
+        if (!sel) return;
+        if (!backlitState.has(sel)) {
+          TRACKED_CANDLE_SELECTORS.push(sel);
+          backlitState.set(sel, { backlit: true, immune: false });
+        }
         const state = backlitState.get(sel);
         if (!state) return;
-        if (field === 'immune' && !IMMUNE_CAPABLE_SELECTOR_SET.has(sel)) return;
+        if (field === 'immune' && !IMMUNE_CAPABLE_SELECTOR_SET.has(sel) && !role) return;
+        if (field === 'immune') IMMUNE_CAPABLE_SELECTOR_SET.add(sel);
+        if (field === 'backlit') BACKLIT_SELECTOR_SET.add(sel);
         state[field] = on;
       });
       lastBacklitMs = 0;

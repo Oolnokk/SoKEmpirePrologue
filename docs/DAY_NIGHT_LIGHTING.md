@@ -276,6 +276,7 @@ Each selector can declare per-selector defaults in `selectorDefaults`:
 - Immune masking preserves text/avatar silhouettes where possible (instead of coarse box cutouts).
 - Sub-element selectors (for example betting anchors/buttons) can now be configured the same way as major panels.
 - You can make individual avatars immune (e.g., `avatar-1`, `avatar-2`, `avatar-3`) by mapping `avatar-*` to a selector template and toggling immunity on those projection ids, without making the whole sidebar container immune.
+- In Scratchbones authored layout mode, the per-sub-element Vars inspector (`Map` → `Sub` → select element → `Vars`) now includes an **immune (candlelight)** checkbox for that selected sub projection id.
 
 ## Example: Manual Candle Light Creation
 
