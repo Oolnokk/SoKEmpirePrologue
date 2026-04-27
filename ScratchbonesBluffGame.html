@@ -7081,7 +7081,7 @@
     }
 
     // Punch-outs: lighting covers all of #app except these immune elements.
-    const IMMUNE_SELECTORS = ['#aiSidebar', '.humanSeatZone', '.turnSpotlight', '.claimCluster'];
+    const IMMUNE_SELECTORS = ['#aiSidebar', '.humanSeatZone', '.turnSpotlight'];
     let lastZoneMs = 0, cachedPunchOuts = [];
     function maybeLightZones(app) {
       const now = performance.now();
