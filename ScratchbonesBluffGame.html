@@ -2208,6 +2208,15 @@
           copiesPerRank: rawGameConfig.deck?.copiesPerRank ?? 4,
           handSize: rawGameConfig.deck?.handSize ?? 10,
           wildCount: rawGameConfig.deck?.wildCount ?? 10,
+          trickBones: {
+            loadoutSize: rawGameConfig.deck?.trickBones?.loadoutSize ?? 6,
+            defaultUnlockedBones: rawGameConfig.deck?.trickBones?.defaultUnlockedBones ?? [1, 2, 3],
+            defaultHumanLoadout: rawGameConfig.deck?.trickBones?.defaultHumanLoadout ?? [1, 1, 2, 2, 3, 3],
+            fallbackLoadout: rawGameConfig.deck?.trickBones?.fallbackLoadout ?? [1, 1, 2, 2, 3, 3],
+            ai: {
+              selectionMode: rawGameConfig.deck?.trickBones?.ai?.selectionMode ?? 'seeded-random-unlocked',
+            },
+          },
           playerCount: rawGameConfig.deck?.playerCount ?? 4,
           humanNames: rawGameConfig.deck?.humanNames ?? ['You'],
         },
@@ -2974,6 +2983,15 @@
     const WILD_COUNT = SCRATCHBONES_GAME.deck.wildCount; // Used by: deck construction and bluff validation.
     const RANK_COUNT = SCRATCHBONES_GAME.deck.rankCount;
     const COPIES_PER_RANK = SCRATCHBONES_GAME.deck.copiesPerRank;
+    const TRICK_BONES_CONFIG = SCRATCHBONES_GAME.deck.trickBones || {};
+    const TRICK_BONE_LOADOUT_SIZE = Math.max(1, Number(TRICK_BONES_CONFIG.loadoutSize) || 6);
+    const DEFAULT_UNLOCKED_TRICK_BONES = (Array.isArray(TRICK_BONES_CONFIG.defaultUnlockedBones) && TRICK_BONES_CONFIG.defaultUnlockedBones.length
+      ? TRICK_BONES_CONFIG.defaultUnlockedBones
+      : [1, 2, 3]).map((rank) => Math.max(1, Math.min(RANK_COUNT, Number(rank) || 1)));
+    const DEFAULT_TRICK_BONE_LOADOUT = (Array.isArray(TRICK_BONES_CONFIG.defaultHumanLoadout) && TRICK_BONES_CONFIG.defaultHumanLoadout.length
+      ? TRICK_BONES_CONFIG.defaultHumanLoadout
+      : (Array.isArray(TRICK_BONES_CONFIG.fallbackLoadout) && TRICK_BONES_CONFIG.fallbackLoadout.length ? TRICK_BONES_CONFIG.fallbackLoadout : [1, 1, 2, 2, 3, 3]))
+      .map((rank) => Math.max(1, Math.min(RANK_COUNT, Number(rank) || 1)));
     const PLAYER_NAMES = SCRATCHBONES_GAME.deck.humanNames; // Optional authored names; Mao-ao generation is the fallback for any seat.
     const NAME_SEED_PREFIX = SCRATCHBONES_GAME.nameGeneration?.seedPrefix || 'madiao-player';
     const CONFIG = {
@@ -3066,12 +3084,21 @@
     function createDeck() {
       const deck = [];
       let id = 1;
+      const activePlayers = state.players.filter((player) => !player.eliminated);
       for (let rank = 1; rank <= RANK_COUNT; rank++) {
         for (let copy = 0; copy < COPIES_PER_RANK; copy++) {
           deck.push({ id: id++, rank, wild: false });
         }
       }
       for (let i = 0; i < WILD_COUNT; i++) deck.push({ id: id++, rank: null, wild: true });
+      for (const player of activePlayers) {
+        const sourceLoadout = Array.isArray(player.trickBoneLoadout) ? player.trickBoneLoadout : [];
+        for (let i = 0; i < TRICK_BONE_LOADOUT_SIZE; i++) {
+          const rawRank = sourceLoadout[i] ?? DEFAULT_TRICK_BONE_LOADOUT[i % DEFAULT_TRICK_BONE_LOADOUT.length];
+          const rank = Math.max(1, Math.min(RANK_COUNT, Number(rawRank) || 1));
+          deck.push({ id: id++, rank, wild: false, trickBone: true, contributedBy: player.id });
+        }
+      }
       return shuffle(deck);
     }
     function sortCards(a, b) {
@@ -3100,9 +3127,34 @@
           seed: aiIdentity.seed,
           gender: aiIdentity.gender,
           personality: index === 0 ? null : aiIdentity.personality,
+          trickBoneLoadout: [],
+          unlockedTrickBones: [],
           reads: {},
         };
       });
+    }
+    function normalizeTrickBoneLoadout(loadout, fallbackLoadout = DEFAULT_TRICK_BONE_LOADOUT) {
+      const source = Array.isArray(loadout) && loadout.length ? loadout : fallbackLoadout;
+      return Array.from({ length: TRICK_BONE_LOADOUT_SIZE }, (_, idx) => {
+        const raw = source[idx] ?? fallbackLoadout[idx % fallbackLoadout.length];
+        return Math.max(1, Math.min(RANK_COUNT, Number(raw) || 1));
+      });
+    }
+    function seededRandomLoadout(seed, unlocked) {
+      const choices = (Array.isArray(unlocked) && unlocked.length ? unlocked : DEFAULT_UNLOCKED_TRICK_BONES)
+        .map((rank) => Math.max(1, Math.min(RANK_COUNT, Number(rank) || 1)));
+      const rng = mulberry32(hashStringToSeed(seed || `seed-${Math.random()}`));
+      return Array.from({ length: TRICK_BONE_LOADOUT_SIZE }, () => choices[Math.floor(rng() * choices.length)]);
+    }
+    function resolveHumanProfileTrickBoneLoadout() {
+      const provider = window.getSelectedKhymeryyanProfile;
+      const selectedProfile = typeof provider === 'function' ? provider() : null;
+      const profileLoadout = selectedProfile?.scratchbones?.trickBoneLoadout;
+      const unlocked = selectedProfile?.scratchbones?.unlockedTrickBones;
+      return {
+        trickBoneLoadout: normalizeTrickBoneLoadout(profileLoadout, DEFAULT_TRICK_BONE_LOADOUT),
+        unlockedTrickBones: (Array.isArray(unlocked) && unlocked.length ? unlocked : DEFAULT_UNLOCKED_TRICK_BONES).map((rank) => Math.max(1, Math.min(RANK_COUNT, Number(rank) || 1))),
+      };
     }
     function inferPlayerCultureFromProfile(player) {
       const cultureCfg = SCRATCHBONES_GAME.nameGeneration?.aiCultureSelection || {};
@@ -3213,6 +3265,16 @@
       state.seed = Math.floor(Math.random() * 1e9);
       rand = mulberry32(state.seed);
       state.players = makePlayers();
+      for (const player of state.players) {
+        if (player.isHuman) {
+          const humanLoadout = resolveHumanProfileTrickBoneLoadout();
+          player.trickBoneLoadout = humanLoadout.trickBoneLoadout;
+          player.unlockedTrickBones = humanLoadout.unlockedTrickBones;
+        } else {
+          player.unlockedTrickBones = [...DEFAULT_UNLOCKED_TRICK_BONES];
+          player.trickBoneLoadout = normalizeTrickBoneLoadout(seededRandomLoadout(player.seed, player.unlockedTrickBones), DEFAULT_TRICK_BONE_LOADOUT);
+        }
+      }
       state.selectedCardIds.clear();
       state.pile = [];
       state.challengeWindow = null;
@@ -5616,6 +5678,7 @@
           <div class="controlsRow">
             <label>
               Declare number
+              <span class="tiny" title="${escapeHtml(SCRATCHBONES_GAME.uiText.loadoutTooltip || '')}">ⓘ</span>
               <select id="declareRank" ${!canHumanAct ? 'disabled' : ''}>
                 ${declareOptions}
               </select>
