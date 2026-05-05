@@ -5,6 +5,15 @@ window.SCRATCHBONES_CONFIG = {
       "copiesPerRank": 4,
       "handSize": 10,
       "wildCount": 10,
+      "trickBones": {
+        "loadoutSize": 6,
+        "defaultUnlockedBones": [1, 2, 3],
+        "defaultHumanLoadout": [1, 1, 2, 2, 3, 3],
+        "fallbackLoadout": [1, 1, 2, 2, 3, 3],
+        "ai": {
+          "selectionMode": "seeded-random-unlocked"
+        }
+      },
       "playerCount": 4,
       "humanNames": [
         "You"
@@ -966,6 +975,7 @@ window.SCRATCHBONES_CONFIG = {
       "initialBanner": "Open a round by selecting one or more cards, then declare a number.",
       "yourLeadBanner": "Your lead. Select cards and declare any number.",
       "pickCardWarning": "Pick at least one card before playing.",
+      "loadoutTooltip": "Each participant adds six trick bones to the shared deck. Loading your best bones helps you—but opponents can draw them too.",
       "challengeTimerLabel": "Auto: let it stand",
       "challengePromptTemplate": "{seat} declared {count} × {rank}. Challenge before the timer runs out, or let it stand.",
       "challengeBurstText": "LIAR!!!",
