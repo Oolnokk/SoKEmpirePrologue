@@ -782,6 +782,12 @@ function resolvePortraitFighter(fighter) {
   return byHead || fighter;
 }
 
+function isCosmeticEquipped(option) {
+  if (!option || typeof option !== 'object') return false;
+  if (option.id === 'none') return false;
+  return Array.isArray(option.layers) ? option.layers.length > 0 : true;
+}
+
 function noneOptionForSlot(options, fallbackLabel) {
   return options.find((option) => option?.id === 'none')
     ?? options[0]
@@ -896,8 +902,8 @@ function randomProfileSeeded(rng, fighters, hairFrontOptions, hairBackOptions, h
 
   const filteredTorso = filterArr(torsoPortraitOptions) ?? [];
   const filteredArm   = filterArr(armPortraitOptions)   ?? [];
-  const torsoCosmetic = weightedPickRng(filteredTorso.length ? filteredTorso : [{ id: 'none', label: 'No Torso Clothing', tintSlot: null, layers: [] }], null, rng);
-  const armCosmetic   = weightedPickRng(filteredArm.length   ? filteredArm   : [{ id: 'none', label: 'No Arm Clothing',   tintSlot: null, layers: [] }], null, rng);
+  let torsoCosmetic = weightedPickRng(filteredTorso.length ? filteredTorso : [{ id: 'none', label: 'No Torso Clothing', tintSlot: null, layers: [] }], null, rng);
+  let armCosmetic   = weightedPickRng(filteredArm.length   ? filteredArm   : [{ id: 'none', label: 'No Arm Clothing',   tintSlot: null, layers: [] }], null, rng);
 
   // Apply forced cosmetics — species-level slots that always override random selection.
   const forced = forcedCosmeticsByFighter?.[fighter.id] ?? forcedCosmeticsByFighter?.[fighterInput?.id];
@@ -937,6 +943,19 @@ function randomProfileSeeded(rng, fighters, hairFrontOptions, hairBackOptions, h
     }
   }
 
+  if (!isCosmeticEquipped(torsoCosmetic) && !isCosmeticEquipped(armCosmetic)) {
+    const equippedTorso = filteredTorso.filter(isCosmeticEquipped);
+    const equippedArm = filteredArm.filter(isCosmeticEquipped);
+    if (equippedTorso.length && equippedArm.length) {
+      if (rng() < 0.5) torsoCosmetic = pickRng(equippedTorso);
+      else armCosmetic = pickRng(equippedArm);
+    } else if (equippedTorso.length) {
+      torsoCosmetic = pickRng(equippedTorso);
+    } else if (equippedArm.length) {
+      armCosmetic = pickRng(equippedArm);
+    }
+  }
+
   const ruleMap = randomizationRulesByFighter || LAST_RANDOMIZATION_RULES_BY_FIGHTER || null;
   const randomizationRules = ruleMap?.[fighter.id] ?? ruleMap?.[fighterInput?.id] ?? null;
   const hatHideSlots = toHiddenSlotSet(hatHideRuleFor(hat?.id, randomizationRules));
@@ -959,7 +978,7 @@ function randomProfileSeeded(rng, fighters, hairFrontOptions, hairBackOptions, h
   bodyColors = applyBodyColorRulesSeeded(bodyColors, randomizationRules, rng);
 
   const clothingRule = randomizationRules?.clothingColors;
-  const hasClothPiece = Boolean(torsoCosmetic?.layers?.length || armCosmetic?.layers?.length);
+  const hasClothPiece = isCosmeticEquipped(torsoCosmetic) || isCosmeticEquipped(armCosmetic);
   const syncAcrossPieces = clothingRule?.syncAcrossPieces === true;
   const ruleRange = clothingRule?.range || null;
   const clothSourceRange = ruleRange || torsoCosmetic?.colorRange || armCosmetic?.colorRange || null;
